@@ -14,7 +14,7 @@ This repo has been tested with Python 3.9. Follow the steps below to use this re
 1. Clone the project repository: `git clone https://github.com/ivadomed/multimodal-registration.git`
 2. In the project folder, clone the repositories that are used by this project:
 ```
-cd synthmorph/
+cd multimodal-registration/
 git clone https://github.com/adalca/pystrum
 git clone https://github.com/adalca/neurite
 git clone https://github.com/voxelmorph/voxelmorph.git
