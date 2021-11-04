@@ -16,8 +16,8 @@ from nilearn.image import resample_img
 def preprocess(im_nii, in_shape=(160, 160, 192)):
     ''' Resize and normalize image. '''
 
-    print(f'Original shape of the nifti image {im_nii.shape}')
-    print(f'Max voxel value of the original nifti image {np.max(im_nii.get_fdata()):.1f}')
+    # print(f'Original shape of the nifti image {im_nii.shape}')
+    # print(f'Max voxel value of the original nifti image {np.max(im_nii.get_fdata()):.1f}')
     rescale_factor = 1 / (np.max(im_nii.get_fdata()) - np.min(im_nii.get_fdata()))
 
     # Scale the data between 0 and 1
@@ -38,15 +38,16 @@ def preprocess(im_nii, in_shape=(160, 160, 192)):
     resampled_nii = resample_img(scaled_img, target_affine=new_affine,
                                  target_shape=target_shape, interpolation='nearest')
 
-    print(f'Shape of the resampled nifti image {resampled_nii.shape}')
-    print(f'Max voxel value of the original nifti image {np.max(resampled_nii.get_fdata()):.2f}')
+    # print(f'Shape of the resampled nifti image {resampled_nii.shape}')
+    # rprint(f'Max voxel value of the original nifti image {np.max(resampled_nii.get_fdata()):.2f}')
 
     os.remove('scaled_image.nii')
 
     return resampled_nii
 
 
-def run_main(model_path, fx_im_path, mov_im_path, out_im_path='res/warped_im', out_field_path='res/deform_field'):
+def run_main(model_path, fx_im_path, mov_im_path, res_dir='res',
+             out_im_path='warped_im', out_field_path='deform_field'):
     """
     Load a registration model (sm_brains or sm_shapes), preprocess the two images
     and register the moving image to the fixed one.
@@ -64,16 +65,19 @@ def run_main(model_path, fx_im_path, mov_im_path, out_im_path='res/warped_im', o
     fixed = preprocess(fixed_nii, model_in_shape)
     moving = preprocess(moving_nii, model_in_shape)
 
-    moved, warp = reg_model.predict([np.expand_dims(moving.get_data().squeeze(), axis=(0, -1)),
-                                     np.expand_dims(fixed.get_data().squeeze(), axis=(0, -1))])
+    moved, warp = reg_model.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
+                                     np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
 
     nib.save(fixed, os.path.join(f'{fx_im_path}_preproc.nii.gz'))
     nib.save(moving, os.path.join(f'{mov_im_path}_preproc.nii.gz'))
 
     moved = nib.Nifti1Image(moved[0, ..., 0], fixed.affine)
     warp = nib.Nifti1Image(warp[0, ..., 0], fixed.affine)
-    nib.save(moved, os.path.join(f'{out_im_path}.nii.gz'))
-    nib.save(warp, os.path.join(f'{out_field_path}.nii.gz'))
+
+    os.makedirs(res_dir, exist_ok=True)
+
+    nib.save(moved, os.path.join(res_dir, f'{out_im_path}.nii.gz'))
+    nib.save(warp, os.path.join(res_dir, f'{out_field_path}.nii.gz'))
 
 
 if __name__ == "__main__":
@@ -87,9 +91,13 @@ if __name__ == "__main__":
     parser.add_argument('--fx-img-path', required=True, help='path to the fixed image')
     parser.add_argument('--mov-img-path', required=True, help='path to the moving image')
 
-    parser.add_argument('--out-img-path', required=False, help='path for the warped image that will result')
-    parser.add_argument('--def-field-path', required=False, help='path to the deformation field that will result')
+    parser.add_argument('--res-dir', required=False, default='res', help='results output directory (default: res)')
+
+    parser.add_argument('--out-img-name', required=False, default='warped_im',
+                        help='name of the warped image that will result')
+    parser.add_argument('--def-field-name', required=False, default='deform_field',
+                        help='name of the deformation field that will result')
 
     args = parser.parse_args()
 
-    run_main(args.model_path, args.fx_img_path, args.mov_img_path, args.out_img_path, args.def_field_path)
+    run_main(args.model_path, args.fx_img_path, args.mov_img_path, args.res_dir, args.out_img_name, args.def_field_name)
