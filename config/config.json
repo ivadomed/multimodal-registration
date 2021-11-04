@@ -10,7 +10,7 @@
   "zero_borders_maps": true,
   "in_shape": [128, 128, 128],
   "num_labels": 26,
-  "num_maps": 2,
+  "num_maps": 10,
   "im_scales": [16, 32, 64],
   "def_scales": [16, 32, 64],
   "im_max_std": 1,
