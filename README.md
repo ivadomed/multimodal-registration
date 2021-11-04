@@ -53,7 +53,7 @@ The file `3d_reg.py` allows you to load a trained registration model and registe
 
 To perform volumes registration:
 ```
-python 3d_reg.py --model-path model/model.h5 --fx-img-path data/t1 --mov-img-path data/t2 --out-img-path res/t2_warped_t1 --def-field-path res/t2_def_field_t1
+python 3d_reg.py --model-path model/model.h5 --fx-img-path data/t1 --mov-img-path data/t2
 ```
 
 ## Generate and apply a deformation field
