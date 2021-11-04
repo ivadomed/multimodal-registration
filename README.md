@@ -62,5 +62,5 @@ The file `gen_apply_def_field.py` takes as input a volume and some parameters to
 
 To generate a deformation field and deform a volume with it:
 ```
-python gen_apply_def_field.py --im-path data/t2.nii.gz --out-im-path moved_t2.nii.gz --out-def-path def_field_moved_t2.nii.gz --def-scales 16 32 64 --def-max-std 3 --interp linear
+python gen_apply_def_field.py --im-path data/t2.nii.gz
 ```
