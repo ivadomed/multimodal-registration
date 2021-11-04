@@ -31,9 +31,9 @@ cd ../voxelmorph
 pip install .
 cd ..
 conda install -c conda-forge tensorflow
-pip install --upgrade tensorflow
 ```
-4. Check the sections below for how to use the different features available
+4. Upgrade tensorflow: `pip install --upgrade tensorflow`
+5. Check the sections below for how to use the different features available
 
 ## Training an agnostic registration model
 
