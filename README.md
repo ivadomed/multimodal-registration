@@ -56,6 +56,10 @@ To perform volumes registration:
 python 3d_reg.py --model-path model/model.h5 --fx-img-path data/t1 --mov-img-path data/t2
 ```
 
+You can dowload pretrained SynthMorph registration models provided on the [VoxelMorph repository](https://github.com/voxelmorph/voxelmorph) by clicking on the links below:
+- ["shapes" variant](https://surfer.nmr.mgh.harvard.edu/ftp/data/voxelmorph/synthmorph/shapes-dice-vel-3-res-8-16-32-256f.h5)
+- ["brains" variant](https://surfer.nmr.mgh.harvard.edu/ftp/data/voxelmorph/synthmorph/brains-dice-vel-0.5-res-16-256f.h5)
+
 ## Generate and apply a deformation field
 
 The file `gen_apply_def_field.py` takes as input a volume and some parameters to generate a deformation field. It then generates a deformation field based on the specified parameters following the Perlin noise strategy used in synthmorph. This deformation field is then applied to the input volume to obtain a moved object. The moved volume as well as the deformation field generated are saved to the paths specified.
