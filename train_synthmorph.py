@@ -175,6 +175,16 @@ if __name__ == "__main__":
         data = json.load(config_file)
 
     # -------------------------------------------------------------------------------------------------------- #
+    # ----                                 PREPARING THE ENVIRONMENT                                      ---- #
+    # -------------------------------------------------------------------------------------------------------- #
+
+    # TensorFlow handling
+    device, nb_devices = vxm.tf.utils.setup_device(data['gpu'])
+    assert np.mod(data['batch_size'], nb_devices) == 0, \
+        f'batch size {data["batch_size"]} not a multiple of the number of GPUs {nb_devices}'
+    assert tf.__version__.startswith('2'), f'TensorFlow version {tf.__version__} is not 2 or later'
+
+    # -------------------------------------------------------------------------------------------------------- #
     # ----                     LOADING/GENERATING LABEL MAPS FROM NOISE DISTRIBUTION                      ---- #
     # -------------------------------------------------------------------------------------------------------- #
 
@@ -201,14 +211,8 @@ if __name__ == "__main__":
         sys.exit(0)
 
     # -------------------------------------------------------------------------------------------------------- #
-    # ----                               PREPARING THE ENVIRONMENT/FOLDERS                                ---- #
+    # ----                                    PREPARING THE FOLDERS                                       ---- #
     # -------------------------------------------------------------------------------------------------------- #
-
-    # TensorFlow handling
-    device, nb_devices = vxm.tf.utils.setup_device(data['gpu'])
-    assert np.mod(data['batch_size'], nb_devices) == 0, \
-        f'batch size {data["batch_size"]} not a multiple of the number of GPUs {nb_devices}'
-    assert tf.__version__.startswith('2'), f'TensorFlow version {tf.__version__} is not 2 or later'
 
     # prepare directories
     if data['bool_sub_dir']:
