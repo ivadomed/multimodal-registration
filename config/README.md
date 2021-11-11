@@ -13,7 +13,7 @@ Description of the different parameters that can be modified/specified in the co
 - `save_label`: boolean to save the generated label locally (True) or not (False) (default: true)
 - `label_dir`: directory pointing to input label maps if `gen_label` is False, if `gen_label` is True and `save_label` is True, directory used to save the labels (default: labels)
 - `zero_borders_maps`: boolean to create (True) or not (False) some borders with zero-voxels on label maps (default: true)
-- `in_shape`: dimension of label maps produced (default: 128 128 128)
+- `in_shape`: dimension of label maps produced (default: 128 128 128) (should be divisable by 2 to the power of n, where n is the number of up/down-sampling steps, to ensure that the concatenations are possible)
 - `num_labels`: number of different labels in the maps (feature dimension) (default: 26)
 - `num_maps`: number of different label maps produced (default: 10)
 - `im_scales`: list of relative resolutions at which noise is sampled normally (to produce the label map) (default: 16 32 64)
