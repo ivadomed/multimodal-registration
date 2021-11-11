@@ -23,7 +23,7 @@
   "vel_res": 16,
   "bias_std": 0.3,
   "bias_res": 40,
-  "gpu": 0,
+  "gpu": "0",
   "epochs": 100,
   "batch_size": 1,
   "save_freq": 10,
