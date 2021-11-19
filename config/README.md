@@ -45,5 +45,7 @@ Description of the different parameters that can be modified/specified in the co
 
 ### Network architecture parameters
 - `int_steps`: number of integration steps (default: 5)
+- `int_res`: resolution (relative voxel size) of the flow field during vector integration (default: 2)
+- `svf_res`: resolution (relative voxel size) of the predicted SVF (default: 2)
 - `enc`: U-net encoder filters (default: 64 64 64 64)
 - `dec`: U-net decoder filters (default: 64 64 64 64 64 64)
