@@ -34,6 +34,8 @@
   "init_epoch": 0,
   "verbose": 1,
   "int_steps": 5,
+  "int_res": 2,
+  "svf_res": 2,
   "enc": [64, 64, 64, 64],
   "dec": [64, 64, 64, 64, 64, 64]
 }

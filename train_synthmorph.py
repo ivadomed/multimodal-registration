@@ -250,8 +250,8 @@ if __name__ == "__main__":
     reg_args = dict(
         inshape=in_shape,
         int_steps=data['int_steps'],
-        int_resolution=2,
-        svf_resolution=2,
+        int_resolution=data['int_res'],
+        svf_resolution=data['svf_res'],
         nb_unet_features=(data['enc'], data['dec']),
     )
 
