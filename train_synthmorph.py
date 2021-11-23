@@ -196,6 +196,8 @@ if __name__ == "__main__":
     else:
         labels_in, label_maps = vxm.py.utils.load_labels(data['label_dir'])
 
+    np.random.seed(42)
+    np.random.shuffle(label_maps)
     label_maps_tr, label_maps_val = np.split(label_maps, [int(len(label_maps)*data['train_frac'])])
 
     gen_tr = gen_synthmorph_eb(
