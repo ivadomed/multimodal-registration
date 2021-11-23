@@ -196,13 +196,23 @@ if __name__ == "__main__":
     else:
         labels_in, label_maps = vxm.py.utils.load_labels(data['label_dir'])
 
-    gen = gen_synthmorph_eb(
-            label_maps,
-            batch_size=data['batch_size'],
-            same_subj=data['same_subj'],
-            flip=True,
-            random_zero_borders=data['zero_borders_maps']
-        )
+    label_maps_tr, label_maps_val = np.split(label_maps, [int(len(label_maps)*data['train_frac'])])
+
+    gen_tr = gen_synthmorph_eb(
+        label_maps_tr,
+        batch_size=data['batch_size'],
+        same_subj=data['same_subj'],
+        flip=True,
+        random_zero_borders=data['zero_borders_maps']
+    )
+
+    gen_val = gen_synthmorph_eb(
+        label_maps_val,
+        batch_size=data['batch_size_val'],
+        same_subj=data['same_subj'],
+        flip=True,
+        random_zero_borders=data['zero_borders_maps_val']
+    )
 
     in_shape = label_maps[0].shape
     labels_out = labels_in
@@ -282,7 +292,7 @@ if __name__ == "__main__":
         model.summary()
 
     # callbacks
-    steps_per_epoch = np.int(np.ceil(len(label_maps) / data['batch_size']))
+    steps_per_epoch = len(label_maps_tr) // data['batch_size']
     save_name = os.path.join(data['model_dir'], '{epoch:04d}.h5')
     save = tf.keras.callbacks.ModelCheckpoint(
         save_name,
@@ -306,7 +316,9 @@ if __name__ == "__main__":
         model.load_weights(data['init_weights'])
     model.save(save_name.format(epoch=data['init_epoch']))
     model.fit(
-        gen,
+        gen_tr,
+        validation_data=gen_val,
+        validation_steps=len(label_maps_val) // data['batch_size_val'],
         initial_epoch=data['init_epoch'],
         epochs=data['epochs'],
         callbacks=callbacks,
