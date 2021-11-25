@@ -81,26 +81,30 @@ def generate_label_maps(in_shape, num_labels, num_maps, im_scales, def_scales, i
     return label_maps
 
 
-def set_random_zero_borders(im):
+def set_random_zero_borders(im, scale=8):
     """
     Function to mimic cropped images/volumes that are zero-padded to a certain dimension by
     setting pixels/voxels of borders with a random width to zero
+
+    Parameters:
+        im: input image/volume on which zero-borders would be added
+        scale: (int) Determine the maximum width of the added zero-borders (1/scale)
     """
     dim_im = len(im.shape) - 1
     out_im = np.zeros_like(im)
 
     x_lim, y_lim = im.shape[0], im.shape[1]
 
-    x_min = np.random.choice([0, np.random.randint(0, x_lim // 2)])
-    x_max = np.random.choice([np.random.randint(x_lim // 2, x_lim), x_lim])
+    x_min = np.random.choice([0, np.random.randint(0, x_lim // scale)])
+    x_max = np.random.choice([np.random.randint((scale - 1) * x_lim // scale, x_lim), x_lim])
 
-    y_min = np.random.choice([0, np.random.randint(0, y_lim // 2)])
-    y_max = np.random.choice([np.random.randint(y_lim // 2, y_lim), y_lim])
+    y_min = np.random.choice([0, np.random.randint(0, y_lim // scale)])
+    y_max = np.random.choice([np.random.randint((scale - 1) * y_lim // scale, y_lim), y_lim])
 
     if dim_im == 3:
         z_lim = im.shape[2]
-        z_min = np.random.choice([0, np.random.randint(0, z_lim // 2)])
-        z_max = np.random.choice([np.random.randint(z_lim // 2, z_lim), z_lim])
+        z_min = np.random.choice([0, np.random.randint(0, z_lim // scale)])
+        z_max = np.random.choice([np.random.randint((scale - 1) * z_lim // scale, z_lim), z_lim])
 
         out_im[x_min:x_max, y_min:y_max, z_min:z_max, 0] = im[x_min:x_max, y_min:y_max, z_min:z_max, 0]
     else:
@@ -109,7 +113,8 @@ def set_random_zero_borders(im):
     return out_im
 
 
-def gen_synthmorph_eb(label_maps, batch_size=1, same_subj=False, flip=True, random_zero_borders=True):
+def gen_synthmorph_eb(label_maps, batch_size=1, same_subj=False, flip=True,
+                      random_zero_borders=True, scale_zero_borders=8):
     """
     Generator for SynthMorph registration.
 
@@ -120,6 +125,7 @@ def gen_synthmorph_eb(label_maps, batch_size=1, same_subj=False, flip=True, rand
             augmentation. Default is False.
         flip: Whether axes are flipped randomly. Default is True.
         random_zero_borders: Whether to create zero-borders on label maps to mimic zero-padding
+        scale_zero_borders: (int) Determine the maximum width of the added zero-borders (1/scale_zero_borders)
     """
     in_shape = label_maps[0].shape
     num_dim = len(in_shape)
@@ -148,9 +154,9 @@ def gen_synthmorph_eb(label_maps, batch_size=1, same_subj=False, flip=True, rand
             for i, trg_im in enumerate(trg):
                 # TODO maybe modify the probability (50% for the moment) or create a param
                 if np.random.choice([True, False]):
-                    trg[i, ...] = set_random_zero_borders(trg_im)
+                    trg[i, ...] = set_random_zero_borders(trg_im, scale_zero_borders)
                 if np.random.choice([True, False]):
-                    src[i, ...] = set_random_zero_borders(src[i, ...])
+                    src[i, ...] = set_random_zero_borders(src[i, ...], scale_zero_borders)
 
         yield [src, trg], [void] * 2
 
@@ -205,7 +211,8 @@ if __name__ == "__main__":
         batch_size=data['batch_size'],
         same_subj=data['same_subj'],
         flip=True,
-        random_zero_borders=data['zero_borders_maps']
+        random_zero_borders=data['zero_borders_maps'],
+        scale_zero_borders=data['zero_bord_scale']
     )
 
     gen_val = gen_synthmorph_eb(
@@ -213,7 +220,8 @@ if __name__ == "__main__":
         batch_size=data['batch_size_val'],
         same_subj=data['same_subj'],
         flip=True,
-        random_zero_borders=data['zero_borders_maps_val']
+        random_zero_borders=data['zero_borders_maps_val'],
+        scale_zero_borders=data['zero_bord_scale']
     )
 
     in_shape = label_maps[0].shape
