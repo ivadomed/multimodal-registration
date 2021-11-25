@@ -15,6 +15,7 @@ Description of the different parameters that can be modified/specified in the co
 - `zero_borders_maps`: boolean to create (True) or not (False) some borders with zero-voxels on label maps (default: false)
 - `zero_borders_maps_val`: boolean to create (True) or not (False) some borders with zero-voxels on label maps of the validation dataset (default: false)
 - `zero_bord_scale`: integer to determine the maximum width of the added zero-borders (1 / zero_bord_scale) (default: 8)
+- `zero_bord_frac`: fraction of the time [0, 1] that the images will enter in the zero-padding process (used only if `zero_borders_map` or `zero_borders_map_val` is True) (default: 0.5)
 - `in_shape`: dimension of label maps produced (default: 160 160 192) (should be divisable by 2 to the power of n, where n is the number of up/down-sampling steps, to ensure that the concatenations are possible)
 - `num_labels`: number of different labels in the maps (feature dimension) (default: 26)
 - `num_maps`: number of different label maps produced (default: 100)
