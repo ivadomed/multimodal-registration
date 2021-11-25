@@ -24,6 +24,13 @@ def dice_loss_zeropad(y_true, y_pred):
     ndims = len(y_pred.get_shape().as_list()) - 2
     vol_axes = list(range(1, ndims + 1))
 
+    if ndims != 3:
+        err = f"The Dice loss computed only on regions with no zero-padding can only be used on 3D volumes " \
+              f"but the dimension of the object is: {ndims}. The expected input should be of shape " \
+              f"[None, x, y, z, n_labels] but received: " \
+              f"{y_true.get_shape().as_list()} and {y_pred.get_shape().as_list()}"
+    raise ValueError(err)
+
     # Create a map of the shape of interest that will be used to compare with the subvolume representing the 0 label
     map = tf.constant(1, shape=y_pred.get_shape().as_list()[1:-1], dtype=tf.float32)
 
