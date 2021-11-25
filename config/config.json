@@ -10,6 +10,7 @@
   "zero_borders_maps": false,
   "zero_borders_maps_val": false,
   "zero_bord_scale": 8,
+  "zero_bord_frac": 0.5,
   "in_shape": [160, 160, 192],
   "num_labels": 26,
   "num_maps": 100,

@@ -116,7 +116,7 @@ def set_random_zero_borders(im, scale=8):
 
 
 def gen_synthmorph_eb(label_maps, batch_size=1, same_subj=False, flip=True,
-                      random_zero_borders=True, scale_zero_borders=8):
+                      random_zero_borders=True, scale_zero_borders=8, frac_zero_bord=0.5):
     """
     Generator for SynthMorph registration.
 
@@ -128,6 +128,8 @@ def gen_synthmorph_eb(label_maps, batch_size=1, same_subj=False, flip=True,
         flip: Whether axes are flipped randomly. Default is True.
         random_zero_borders: Whether to create zero-borders on label maps to mimic zero-padding
         scale_zero_borders: (int) Determine the maximum width of the added zero-borders (1/scale_zero_borders)
+        frac_zero_bord: fraction of the time [0, 1] that the images will enter in the zero-padding process (used only
+            if random_zero_borders is true)
     """
     in_shape = label_maps[0].shape
     num_dim = len(in_shape)
@@ -154,10 +156,11 @@ def gen_synthmorph_eb(label_maps, batch_size=1, same_subj=False, flip=True,
 
         if random_zero_borders:
             for i, trg_im in enumerate(trg):
-                # TODO maybe modify the probability (50% for the moment) or create a param
-                if np.random.choice([True, False]):
+                # enter the zero-padding process only the fraction of time specified in argument
+                # (independent between the source and the target images)
+                if np.random.random() < frac_zero_bord:
                     trg[i, ...] = set_random_zero_borders(trg_im, scale_zero_borders)
-                if np.random.choice([True, False]):
+                if np.random.random() < frac_zero_bord:
                     src[i, ...] = set_random_zero_borders(src[i, ...], scale_zero_borders)
 
         yield [src, trg], [void] * 2
@@ -214,7 +217,8 @@ if __name__ == "__main__":
         same_subj=data['same_subj'],
         flip=True,
         random_zero_borders=data['zero_borders_maps'],
-        scale_zero_borders=data['zero_bord_scale']
+        scale_zero_borders=data['zero_bord_scale'],
+        frac_zero_bord=data['zero_bord_frac']
     )
 
     gen_val = gen_synthmorph_eb(
@@ -223,7 +227,8 @@ if __name__ == "__main__":
         same_subj=data['same_subj'],
         flip=True,
         random_zero_borders=data['zero_borders_maps_val'],
-        scale_zero_borders=data['zero_bord_scale']
+        scale_zero_borders=data['zero_bord_scale'],
+        frac_zero_bord=data['zero_bord_frac']
     )
 
     in_shape = label_maps[0].shape
