@@ -36,6 +36,7 @@
   "init_weights": "model.h5",
   "reg_param": 1,
   "lr": 1e-4,
+  "lr_scheduler": "constant",
   "init_epoch": 0,
   "verbose": 1,
   "int_steps": 5,

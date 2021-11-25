@@ -22,6 +22,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import nibabel as nib
+import math
 
 import neurite as ne
 import voxelmorph as vxm
@@ -326,6 +327,36 @@ if __name__ == "__main__":
             write_graph=False,
         )
         callbacks.append(log)
+
+    # monitoring the learning rate
+    scheduler = data['lr_scheduler']
+    list_scheduler = ['onplateau', 'decay', 'exponential']
+    if scheduler == 'constant' or scheduler not in list_scheduler:
+        pass
+    elif scheduler == 'onplateau':
+        # TODO add options to modify these parameters in the config file
+        reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, mode='min',
+                                                         patience=100, min_lr=data['lr'] * 1e-2,
+                                                         min_delta=1e-5, cooldown=50)
+        callbacks.append(reduce_lr)
+    elif scheduler == 'decay':
+        # TODO add options to modify these parameters in the config file
+        nb_epochs_per_decay = 100
+        decay_rate = 0.5
+        def lr_decay(epoch, lr):
+            if epoch != 0 and epoch % nb_epochs_per_decay == 0:
+                return lr * decay_rate
+            return lr
+        callbacks.append(tf.keras.callbacks.LearningRateScheduler(lr_decay))
+    elif scheduler == 'exponential':
+        # TODO add options to modify these parameters in the config file
+        exp_decay = 0.005
+        def schedule(epoch, lr):
+            def lr_exp_decay(epoch, lr, exp_decay):
+                return lr * math.exp(-exp_decay*epoch)
+            return lr_exp_decay(epoch, lr, exp_decay)
+        callbacks.append(tf.keras.callbacks.LearningRateScheduler(schedule))
+
 
     # -------------------------------------------------------------------------------------------------------- #
     # ----                                INITIALIZE AND TRAIN THE MODEL                                  ---- #
