@@ -26,6 +26,8 @@ import nibabel as nib
 import neurite as ne
 import voxelmorph as vxm
 
+import losses
+
 
 def generate_label_maps(in_shape, num_labels, num_maps, im_scales, def_scales, im_max_std, def_max_std,
                         save_label, label_dir, add_str=''):
@@ -288,7 +290,10 @@ if __name__ == "__main__":
         pred = vxm.layers.SpatialTransformer(interp_method='linear', name='pred')([map_1, flow])
 
         # losses and compilation
-        model.add_loss(vxm.losses.Dice().loss(map_2, pred) + tf.repeat(1., data['batch_size']))
+        if data['zero_borders_maps'] or data['zero_borders_maps_val']:
+            model.add_loss(losses.dice_loss_zeropad(map_2, pred) + tf.repeat(1., data['batch_size']))
+        else:
+            model.add_loss(vxm.losses.Dice().loss(map_2, pred) + tf.repeat(1., data['batch_size']))
         model.add_loss(vxm.losses.Grad('l2', loss_mult=data['reg_param']).loss(None, flow))
         model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=data['lr']))
         model.summary()
