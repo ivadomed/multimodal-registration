@@ -53,11 +53,11 @@ def dice_loss_zeropad(y_true, y_pred):
         y_true_list.append(tf.where(is_not_0_element, y_true[0, :, :, :, i], zero_map))
         y_pred_list.append(tf.where(is_not_0_element, y_pred[0, :, :, :, i], zero_map))
 
-    y_true = tf.stack(y_true_list)
-    y_pred = tf.stack(y_pred_list)
+    y_true_proc = tf.stack(y_true_list)
+    y_pred_proc = tf.stack(y_pred_list)
 
-    top = 2 * tf.reduce_sum(y_true * y_pred, vol_axes)
-    bottom = tf.reduce_sum(y_true + y_pred, vol_axes)
+    top = 2 * tf.reduce_sum(y_true_proc * y_pred_proc, vol_axes)
+    bottom = tf.reduce_sum(y_true_proc + y_pred_proc, vol_axes)
 
     # Remove the value computed on the subvolume corresponding to the 0 label
     top_non_zero_label = top[1:]
