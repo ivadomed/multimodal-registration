@@ -16,8 +16,6 @@ from nilearn.image import resample_img
 def preprocess(im_nii, in_shape=(160, 160, 192)):
     ''' Resize and normalize image. '''
 
-    # print(f'Original shape of the nifti image {im_nii.shape}')
-    # print(f'Max voxel value of the original nifti image {np.max(im_nii.get_fdata()):.1f}')
     rescale_factor = 1 / (np.max(im_nii.get_fdata()) - np.min(im_nii.get_fdata()))
 
     # Scale the data between 0 and 1
@@ -38,9 +36,6 @@ def preprocess(im_nii, in_shape=(160, 160, 192)):
     resampled_nii = resample_img(scaled_img, target_affine=new_affine,
                                  target_shape=target_shape, interpolation='nearest')
 
-    # print(f'Shape of the resampled nifti image {resampled_nii.shape}')
-    # rprint(f'Max voxel value of the original nifti image {np.max(resampled_nii.get_fdata()):.2f}')
-
     os.remove('scaled_image.nii')
 
     return resampled_nii
@@ -49,8 +44,7 @@ def preprocess(im_nii, in_shape=(160, 160, 192)):
 def run_main(model_path, fx_im_path, mov_im_path, res_dir='res',
              out_im_path='warped_im', out_field_path='deform_field'):
     """
-    Load a registration model (sm_brains or sm_shapes), preprocess the two images
-    and register the moving image to the fixed one.
+    Load a registration model, preprocess the two images and register the moving image to the fixed one.
     Save the warped image and the deformation field in the paths specified.
     """
 

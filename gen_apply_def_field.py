@@ -71,7 +71,6 @@ if __name__ == "__main__":
     moving = vxm.py.utils.load_volfile(arg.im_path, add_batch_axis=True, add_feat_axis=True)
     deform = vxm.py.utils.load_volfile(out_def_path, add_batch_axis=True, ret_affine=True)
 
-    # moved = vxm.networks.Transform(im.shape, interp_method=arg.interp, nb_feats=1).predict([im, def_field])
     moved = vxm.networks.Transform(moving.shape[1:-1],
                                    interp_method=arg.interp,
                                    nb_feats=moving.shape[-1]).predict([moving, deform[0]])
