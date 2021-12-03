@@ -79,7 +79,7 @@ In the second part of the pipeline, these 3 files are used to compute some measu
 The second measurement is representative of the spinal cord overlap. To compute this value, the segmentation of the spinal cord should be obtained. This is done with the [`sct_deepseg_sc` feature](https://spinalcordtoolbox.com/user_section/command-line.html#sct-deepseg-sc) of the Spinal Cord Toolbox ([SCT](https://spinalcordtoolbox.com/)) software.  
 The spinal cord segmentations are saved and used to compute the volume overlap (Dice score) with the file `eval_reg_on_sc_seg.py`. The results are saved in the file `dice_score.csv` that summarises the results obtained for the different comparisons done.  
 
-Additionally, a Quality Control (QC) report is generated using [`sct_qc`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-qc) from SCT allowing to control the spinal cord segmentations as well as the spinal cord registration. This report takes the form of a `.html` file and can be find at `qc/index.html`.
+Additionally, a Quality Control (QC) report is generated using [`sct_qc`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-qc) from SCT allowing to control the spinal cord segmentations as well as the spinal cord registration. This report takes the form of a `.html` file and can be find at `qc/index.html` in your result folder.
 
 <img width="900" alt="Capture d’écran 2021-12-03 à 17 30 01" src="https://user-images.githubusercontent.com/32447627/144681407-635ad819-be82-41de-acee-b573ab31aba5.png">
 
