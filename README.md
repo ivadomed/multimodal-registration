@@ -89,6 +89,6 @@ In the project directory, if your BIDS dataset is in the same directory in the `
 sct_run_batch -jobs 1 -path-data bids_dataset -path-out res_registration -script pipeline_bids_register_evaluate.sh
 ```
 
-⚠️ To use this pipeline you should [install SCT](https://spinalcordtoolbox.com/user_section/installation.html) and have it active in your working environment when running the shell script.  
+⚠️ To use this pipeline you should [install SCT](https://spinalcordtoolbox.com/user_section/installation.html) and have it active in your working environment when running the shell script. The script has been tested with SCT version [5.4](https://github.com/spinalcordtoolbox/spinalcordtoolbox/releases/tag/5.4). 
 
 
