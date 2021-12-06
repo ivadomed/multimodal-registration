@@ -29,8 +29,9 @@ def preprocess(im_nii, mov_im_nii, in_shape=(160, 160, 192)):
     scaled_img = nib.load('scaled_image.nii')
 
     # sampling strategy: https://www.kaggle.com/mechaman/resizing-reshaping-and-resampling-nifti-files
+    # the brain images are mapped to the specified target shape at 1 mm isotropic resolution
     target_shape = np.array(in_shape)
-    new_resolution = [im_shape[0]/target_shape[0], im_shape[1]/target_shape[1], im_shape[2]/target_shape[2]]
+    new_resolution = [1, 1, 1]
     new_affine = np.zeros((4, 4))
     new_affine[:3, :3] = np.diag(new_resolution)
     # putting point 0,0,0 in the middle of the new volume - this could be refined in the future
