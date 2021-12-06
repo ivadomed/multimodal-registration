@@ -83,40 +83,23 @@ file_t2_reg="${SES}_T2w_proc_reg_to_T1w"
 
 # Segment spinal cord
 segment $file_t1 "t1"
-# file_t1_seg=$FILESEG
-
 segment $file_t2 "t2"
-# file_t2_seg=$FILESEG
-
 segment $file_t2_reg "t2"
-# file_t2_reg_seg=$FILESEG
 
 file_t1_seg="${SES}_T1w_proc_seg"
 file_t2_seg="${SES}_T2w_proc_seg"
 file_t2_reg_seg="${SES}_T2w_proc_reg_to_T1w_seg"
 
-# Compute Dice score of spinal cord segmentation overlap before and after registration
-# conda activate smenv
-# Compute Dice score and save the results in a csv file
+# Compute Dice score of SC segmentation overlap before and after registration and save the results in a csv file
 python $PATH_SCRIPT/eval_reg_on_sc_seg.py --fx-seg-path $file_t1_seg --moving-seg-path $file_t2_seg --warped-seg-path $file_t2_reg_seg --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/dice_score.csv --append 1
 python $PATH_SCRIPT/eval_reg_with_mi.py --fx-im-path $file_t1_seg --moving-im-path $file_t2_seg --warped-im-path $file_t2_reg_seg --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/nmi.csv --append 1
-# conda deactivate
 
 # Compute metrics
 compute_metrics "$file_t1_seg" "$PATH_DATA_PROCESSED/t1_seg"
 compute_metrics "$file_t2_seg" "$PATH_DATA_PROCESSED/t2_seg"
 compute_metrics "$file_t2_reg_seg" "$PATH_DATA_PROCESSED/t2_reg_seg"
-# sct_process_segmentation -i ${file_t1_seg}.nii.gz -o t1_seg.csv -perslice 1 -angle-corr 1 -append 1
-# sct_process_segmentation -i ${file_t2_seg}.nii.gz -o t2_seg.csv -perslice 1 -angle-corr 1 -append 1
-# sct_process_segmentation -i ${file_t2_reg_seg}.nii.gz -o t2_reg_seg.csv -perslice 1 -angle-corr 1 -append 1
-
-# Generate QC report to assess segmentation
-# sct_qc -i ${file_t1}.nii.gz -s ${file_t1_seg}.nii.gz -p sct_deepseg_sc -qc ${PATH_QC} -qc-subject ${SUBJECT}
-# sct_qc -i ${file_t2}.nii.gz -s ${file_t2_seg}.nii.gz -p sct_deepseg_sc -qc ${PATH_QC} -qc-subject ${SUBJECT}
-# sct_qc -i ${file_t2_reg}.nii.gz -s ${file_t2_reg_seg}.nii.gz -p sct_deepseg_sc -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
 # Generate QC report to assess registration
-# sct_qc -i ${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_t1}.nii.gz -s ${file_t1_seg}.nii.gz -d ${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_t2}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
 sct_qc -i ${file_t1}.nii.gz -s ${file_t1_seg}.nii.gz -d ${file_t2}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
 sct_qc -i ${file_t1}.nii.gz -s ${file_t1_seg}.nii.gz -d ${file_t2_reg}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
 sct_qc -i ${file_t2}.nii.gz -s ${file_t2_seg}.nii.gz -d ${file_t2_reg}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
