@@ -41,6 +41,7 @@ def normalized_mutual_information(image0, image1, bins=100):
     Compute the normalized mutual information (NMI).
     It ranges from 1 (perfectly uncorrelated image values) to 2 (perfectly correlated image values,
     whether positively or negatively).
+    This implementation is based on Studholme and colleagues work [1].
     Parameters
     ----------
     image0, image1 : ndarray
@@ -54,14 +55,17 @@ def normalized_mutual_information(image0, image1, bins=100):
         The normalized mutual information between the two arrays, computed at
         the granularity given by ``bins``. Higher NMI implies more similar
         input images.
+    Reference
+    ---------
+    [1] C. Studholme, D.L.G. Hill, & D.J. Hawkes (1999).
+        An overlap invariant entropy measure of 3D medical image alignment.
+        Pattern Recognition 32(1):71-86 :DOI:`10.1016/S0031-3203(98)00091-0`
     """
 
     hist, bin_edges = np.histogramdd(
         [np.reshape(image0, -1), np.reshape(image1, -1)],
         bins=bins
     )
-
-    # hist = hist[1:, 1:]
 
     H0 = entropy(np.sum(hist, axis=0))
     H1 = entropy(np.sum(hist, axis=1))
