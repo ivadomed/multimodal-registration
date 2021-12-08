@@ -30,6 +30,7 @@ pip install .
 cd ../voxelmorph
 pip install .
 cd ..
+conda install nilearn
 conda install -c conda-forge tensorflow
 ```
 4. Upgrade tensorflow: `pip install --upgrade tensorflow`
