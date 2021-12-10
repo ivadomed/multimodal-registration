@@ -12,6 +12,7 @@ import os
 import argparse
 
 import numpy as np
+import tensorflow as tf
 import nibabel as nib
 import voxelmorph as vxm
 
@@ -112,6 +113,15 @@ if __name__ == "__main__":
     parser.add_argument('--fx-img-contrast', required=False, default='T1w',
                         help='contrast of the fixed image: one of {T1w, T2w, T2star}')
 
+    parser.add_argument('--one-cpu-tf', required=False, type=str, default='True',
+                        help='boolean to determine if the processes link to TF have access to one CPU (True) or all '
+                             'the CPUs (False) {\'0\',\'1\', \'False\',\'True\'}')
+
     args = parser.parse_args()
+
+    if eval(args.one_cpu_tf):
+        # set that TF can use only one CPU
+        session_conf = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
+        sess = tf.compat.v1.Session(config=session_conf)
 
     run_main(args.model_path, args.fx_img_path, args.mov_img_path, args.fx_img_contrast)
