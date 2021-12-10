@@ -16,12 +16,10 @@ from nilearn.image import resample_img
 def preprocess(im_nii, in_shape=(160, 160, 192)):
     ''' Resize and normalize image. '''
 
-    rescale_factor = 1 / (np.max(im_nii.get_fdata()) - np.min(im_nii.get_fdata()))
-
     # Scale the data between 0 and 1
-    im_nii.header.set_slope_inter(rescale_factor, - np.min(im_nii.get_fdata()))
-    nib.save(im_nii, 'scaled_image.nii')
-    scaled_img = nib.load('scaled_image.nii')
+    img = im_nii.get_fdata()
+    scaled_img = (img - np.min(img)) / (np.max(img) - np.min(img))
+    scaled_nii = nib.Nifti1Image(scaled_img, im_nii.affine)
 
     # sampling strategy: https://www.kaggle.com/mechaman/resizing-reshaping-and-resampling-nifti-files
     target_shape = np.array(in_shape)
@@ -33,10 +31,8 @@ def preprocess(im_nii, in_shape=(160, 160, 192)):
     new_affine[3, 3] = 1.
 
     # Resample the 3d image to be in the dimension expected by the registration model
-    resampled_nii = resample_img(scaled_img, target_affine=new_affine,
+    resampled_nii = resample_img(scaled_nii, target_affine=new_affine,
                                  target_shape=target_shape, interpolation='nearest')
-
-    os.remove('scaled_image.nii')
 
     return resampled_nii
 
