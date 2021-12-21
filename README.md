@@ -69,3 +69,27 @@ To generate a deformation field and deform a volume with it:
 ```
 python gen_apply_def_field.py --im-path data/t2.nii.gz
 ```
+
+## Registration & Evaluation pipeline
+
+A pipeline for T2w volume registration to T1w volume for each subject of any dataset following Brain Imaging Data Structure ([BIDS](https://bids.neuroimaging.io/)) convention is provided with the shell script `pipeline_bids_register_evaluate.sh`. 
+For each subject of the dataset, the T2w volume will be registered to the T1w volume using a registration model which name should be specified in the shell script and that should be located in the `model/` folder. This first part of the pipeline leads to the creation of 3 new files for each subject: `sub-xx_T1w_proc.nii.gz`, `sub-xx_T2w_proc.nii.gz` and `sub-xx_T2w_proc_reg_to_T1w.nii.gz`. It is done with the file `bids_registration.py`.  
+
+In the second part of the pipeline, these 3 files are used to compute some measurements and obtain a QC report in order to have a an idea of the registration performance. One measurement, the normalized Mutual Information is computed directly on the files obtained with the registration process (first part). It is done with the file `eval_reg_with_mi.py` and results in the file `nmi.csv` that summarises the results obtained for the different comparisons done. 
+
+The second measurement is representative of the spinal cord overlap. To compute this value, the segmentation of the spinal cord should be obtained. This is done with the [`sct_deepseg_sc` feature](https://spinalcordtoolbox.com/user_section/command-line.html#sct-deepseg-sc) of the Spinal Cord Toolbox ([SCT](https://spinalcordtoolbox.com/)) software.  
+The spinal cord segmentations are saved and used to compute the volume overlap (Dice score) with the file `eval_reg_on_sc_seg.py`. The results are saved in the file `dice_score.csv` that summarises the results obtained for the different comparisons done.  
+
+Additionally, a Quality Control (QC) report is generated using [`sct_qc`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-qc) from SCT allowing to control the spinal cord segmentations as well as the spinal cord registration. This report takes the form of a `.html` file and can be found at `qc/index.html` in your result folder.
+
+<img width="900" alt="Capture d’écran 2021-12-03 à 17 30 01" src="https://user-images.githubusercontent.com/32447627/144681407-635ad819-be82-41de-acee-b573ab31aba5.png">
+
+To run the shell script, [`sct_run_batch`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-run-batch) from SCT is used.  
+In the project directory, if your BIDS dataset is in the same directory in the `bids_dataset` folder, you can execute the following command to run the registration and evaluation pipeline:
+```
+sct_run_batch -jobs 1 -path-data bids_dataset -path-out res_registration -script pipeline_bids_register_evaluate.sh
+```
+
+⚠️ To use this pipeline you should [install SCT](https://spinalcordtoolbox.com/user_section/installation.html) and have it active in your working environment when running the shell script. The script has been tested with SCT version [5.4](https://github.com/spinalcordtoolbox/spinalcordtoolbox/releases/tag/5.4). 
+
+
