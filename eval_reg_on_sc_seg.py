@@ -6,6 +6,7 @@ The dice scores are saved in a csv file.
 
 import argparse
 import os
+import sys
 
 import numpy as np
 import nibabel as nib
@@ -34,6 +35,13 @@ if __name__ == "__main__":
                    help='path to csv summarizing the dice scores')
     p.add_argument('--append', type=int, required=False, default=1, choices=[0, 1],
                    help="Append results as a new line in the output csv file instead of overwriting it.")
+
+    p.add_argument('--min-dice', required=False, type=int, default=80,
+                   help="Minimum Dice score expected (percentage, to deal with int). If lower and not last-eval then "
+                        "return a sys.exit(1) to signal this low score in the bash script and proceed to an "
+                        "affine registration prior to the model's one")
+    p.add_argument('--last-eval', type=int, required=False, default=1, choices=[0, 1],
+                    help='Determine if this is the last evaluation that will be done (1) or not (0)')
 
     arg = p.parse_args()
 
@@ -68,6 +76,9 @@ if __name__ == "__main__":
     dice_fx_moved = np.sum(moved_im_val[fx_im_val == 1]) * 2.0 / (np.sum(moved_im_val) + np.sum(fx_im_val))
     dice_moving_moved = np.sum(moved_im_val[moving_im_val == 1]) * 2.0 / (np.sum(moved_im_val) + np.sum(moving_im_val))
 
+    if 100 * dice_fx_moved < arg.min_dice and not arg.last_eval:
+        sys.exit(1)
+
     perc_dice_improvement = 100 * (dice_fx_moved - dice_fx_moving)/dice_fx_moving
 
     res_summary = dict()
@@ -92,3 +103,5 @@ if __name__ == "__main__":
         for val in res_summary.keys():
             line.append(str(res_summary[val]))
         spamwriter.writerow(line)
+
+    sys.exit(0)
