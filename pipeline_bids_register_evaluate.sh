@@ -39,15 +39,6 @@ segment(){
   sct_deepseg_sc -i ${file}.nii.gz -c $contrast -qc ${PATH_QC} -qc-subject ${SUBJECT}
 }
 
-compute_metrics(){
-  local file="$1"
-  local out="$2"
-
-  echo "Compute metrics on segmentation"
-  # Compute metrics
-  sct_process_segmentation -i ${file}.nii.gz -o ${out}.csv -perslice 0 -angle-corr 1 -append 1
-}
-
 # SCRIPT STARTS HERE
 # ==============================================================================
 # Display useful info for the log, such as SCT version, RAM and CPU cores available
@@ -156,11 +147,6 @@ else
   conda deactivate
 
 fi
-
-# Compute metrics
-compute_metrics "$file_t1_seg" "$PATH_DATA_PROCESSED/t1_seg"
-compute_metrics "$file_t2_seg" "$PATH_DATA_PROCESSED/t2_seg"
-compute_metrics "$file_t2_reg_seg" "$PATH_DATA_PROCESSED/t2_reg_seg"
 
 # Generate QC report to assess registration
 sct_qc -i ${file_t1}.nii.gz -s ${file_t1_seg}.nii.gz -d ${file_t2}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
