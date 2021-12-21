@@ -55,6 +55,12 @@ sct_check_dependencies -short
 
 SUBJECT_ID=$(dirname "$SUBJECT")
 SES=$(basename "$SUBJECT")
+
+# Choose the registration model to use (should be in the model folder)
+REGISTRATION_MODEL="registration_model.h5"
+# Set the following value to 0 to not perform affine registration in any case
+MIN_SC_DICE_EXPECTED_PERC=80
+
 # Go to folder where data will be copied and processed
 cd ${PATH_DATA_PROCESSED}
 # Copy source images
@@ -66,10 +72,6 @@ cd ${SUBJECT}/anat/
 
 file_t1_before_proc="${SES}_T1w"
 file_t2_before_proc="${SES}_T2w"
-
-REGISTRATION_MODEL="registration_model.h5"
-# Set the following value to 0 to not perform affine registration in any case
-MIN_SC_DICE_EXPECTED_PERC=80
 
 CONDA_BASE=$(conda info --base)
 source $CONDA_BASE/etc/profile.d/conda.sh
