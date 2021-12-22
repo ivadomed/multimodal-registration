@@ -51,6 +51,10 @@ SES=$(basename "$SUBJECT")
 # and observe what happened at the different steps of the process or to keep only the two volumes of origin
 # and processed/registered (in origin and res folders) (DEBUGGING=0)
 DEBUGGING=1
+# Choose whether to keep original naming and location of input volumes for the registered volumes. It's recommended to set the value to 1 if the dataset
+# will later be used for other tasks, such as segmentation. If the value is 1, the res folder will be removed and the
+# registered volumes will be directly present in the anat folder and with the same names as the original volumes
+KEEP_ORI_NAMING_LOC=1
 # Choose the registration model to use (should be in the model folder)
 REGISTRATION_MODEL="registration_model.h5"
 # Set the following value to 0 to not perform affine registration in any case
@@ -158,7 +162,7 @@ sct_qc -i ${file_t1}.nii.gz -s ${file_t1_seg}.nii.gz -d ${file_t2_reg}.nii.gz -p
 sct_qc -i ${file_t2}.nii.gz -s ${file_t2_seg}.nii.gz -d ${file_t2_reg}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
 # Rearrange the different files to obtain an output that has a better structure and is easier to use
-# The processed T1w and processed + registered T2w volumes are stored in the res folder
+# The processed T1w and processed + registered T2w volumes are stored in the res folder or directly in anat folder if KEEP_ORI_NAMING_LOC=1
 # The original T1w and T2w volumes are stored in the origin folder
 # If DEBUGGING=1, the additional volumes computed during the process are stored in the add_res folder
 # and the segmentations are stored in the seg folder
@@ -199,20 +203,41 @@ else
   done
 fi
 
+if [ $KEEP_ORI_NAMING_LOC == 1 ]
+then
+  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T1w_proc.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T1w.nii.gz"
+  if [ $RETURN_VAL == 0 ]
+  then
+    mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T2w_proc_reg_to_T1w.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w.nii.gz"
+  else
+    mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T2w_aff_reg_proc_reg_to_T1w.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w.nii.gz"
+  fi
+  rm -rf "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/"
+fi
+
 # Verify presence of output files and write log file if error
 # ------------------------------------------------------------------------------
-if [ $RETURN_VAL == 0 ]
+if [ $KEEP_ORI_NAMING_LOC == 0 ]
 then
-  FILES_TO_CHECK=(
-    "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T1w_proc.nii.gz"
-    "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T2w_proc_reg_to_T1w.nii.gz"
-  )
+  if [ $RETURN_VAL == 0 ]
+  then
+    FILES_TO_CHECK=(
+      "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T1w_proc.nii.gz"
+      "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T2w_proc_reg_to_T1w.nii.gz"
+    )
+  else
+    FILES_TO_CHECK=(
+      "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T1w_proc.nii.gz"
+      "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T2w_aff_reg_proc_reg_to_T1w.nii.gz"
+    )
+  fi
 else
   FILES_TO_CHECK=(
-    "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T1w_proc.nii.gz"
-    "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T2w_aff_reg_proc_reg_to_T1w.nii.gz"
+    "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T1w.nii.gz"
+    "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w.nii.gz"
   )
 fi
+
 pwd
 for file in ${FILES_TO_CHECK[@]}; do
   if [[ ! -e $file ]]; then
