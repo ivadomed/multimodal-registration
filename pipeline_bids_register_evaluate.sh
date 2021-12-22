@@ -47,6 +47,10 @@ sct_check_dependencies -short
 SUBJECT_ID=$(dirname "$SUBJECT")
 SES=$(basename "$SUBJECT")
 
+# Choose whether to keep all the files created during the process (DEBUGGING=1) (in add_res and seg folders) to debug
+# and observe what happened at the different steps of the process or to keep only the two volumes of origin
+# and processed/registered (in origin and res folders) (DEBUGGING=0)
+DEBUGGING=1
 # Choose the registration model to use (should be in the model folder)
 REGISTRATION_MODEL="registration_model.h5"
 # Set the following value to 0 to not perform affine registration in any case
@@ -153,16 +157,62 @@ sct_qc -i ${file_t1}.nii.gz -s ${file_t1_seg}.nii.gz -d ${file_t2}.nii.gz -p sct
 sct_qc -i ${file_t1}.nii.gz -s ${file_t1_seg}.nii.gz -d ${file_t2_reg}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
 sct_qc -i ${file_t2}.nii.gz -s ${file_t2_seg}.nii.gz -d ${file_t2_reg}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
+# Rearrange the different files to obtain an output that has a better structure and is easier to use
+# The processed T1w and processed + registered T2w volumes are stored in the res folder
+# The original T1w and T2w volumes are stored in the origin folder
+# If DEBUGGING=1, the additional volumes computed during the process are stored in the add_res folder
+# and the segmentations are stored in the seg folder
+mkdir origin
+mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T1w.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/${SES}_T1w.nii.gz"
+mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/${SES}_T2w.nii.gz"
+mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T1w.json" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/${SES}_T1w.json"
+mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w.json" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/${SES}_T2w.json"
+
+mkdir res
+mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T1w_proc.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T1w_proc.nii.gz"
+if [ $RETURN_VAL == 0 ]
+then
+  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w_proc_reg_to_T1w.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T2w_proc_reg_to_T1w.nii.gz"
+else
+  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w_aff_reg_proc_reg_to_T1w.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T2w_aff_reg_proc_reg_to_T1w.nii.gz"
+fi
+
+if [ $DEBUGGING == 1 ]
+then
+  mkdir seg
+  filenames_seg=`ls ./*_seg.nii.gz`
+  for file in $filenames_seg
+  do
+     mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/$file" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/seg/$file"
+  done
+  mkdir add_res
+  filenames=`ls ./*.nii.gz`
+  for file in $filenames
+  do
+     mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/$file" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/add_res/$file"
+  done
+else
+  filenames=`ls ./*.nii.gz`
+  for file in $filenames
+  do
+     rm -f "$file"
+  done
+fi
+
 # Verify presence of output files and write log file if error
 # ------------------------------------------------------------------------------
-FILES_TO_CHECK=(
-  "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T1w_proc.nii.gz"
-  "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w_proc.nii.gz"
-  "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w_proc_reg_to_T1w.nii.gz"
-  "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T1w_proc_seg.nii.gz"
-  "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w_proc_seg.nii.gz"
-  "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w_proc_reg_to_T1w_seg.nii.gz"
-)
+if [ $RETURN_VAL == 0 ]
+then
+  FILES_TO_CHECK=(
+    "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T1w_proc.nii.gz"
+    "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T2w_proc_reg_to_T1w.nii.gz"
+  )
+else
+  FILES_TO_CHECK=(
+    "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T1w_proc.nii.gz"
+    "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T2w_aff_reg_proc_reg_to_T1w.nii.gz"
+  )
+fi
 pwd
 for file in ${FILES_TO_CHECK[@]}; do
   if [[ ! -e $file ]]; then
