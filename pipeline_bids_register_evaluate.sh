@@ -109,17 +109,14 @@ then
   segment $file_t2_before_proc "t2"
 
   # Set the different filenames for the multimodal affine registration based on the SC segmentation
-  file_t1_before_proc="${SES}_T1w.nii.gz"
-  file_t2_before_proc="${SES}_T2w.nii.gz"
   file_t1_before_proc_seg="${SES}_T1w_seg.nii.gz"
   file_t2_before_proc_seg="${SES}_T2w_seg.nii.gz"
   t2_affine_reg="${SES}_T2w_aff_reg.nii.gz"
 
   # Multimodal affine registration based on the SC segmentation
-  sct_register_multimodal -i $file_t2_before_proc -iseg $file_t2_before_proc_seg -d $file_t1_before_proc -dseg $file_t1_before_proc_seg -param step=1,type=seg,algo=centermass -o $t2_affine_reg
+  sct_register_multimodal -i "${file_t2_before_proc}.nii.gz" -iseg $file_t2_before_proc_seg -d "${file_t1_before_proc}.nii.gz" -dseg $file_t1_before_proc_seg -param step=1,type=seg,algo=centermass -o $t2_affine_reg
 
   # Set the different filenames for the registration using synthmorph approach
-  file_t1_before_proc="${SES}_T1w"
   file_t2_before_proc="${SES}_T2w_aff_reg"
 
   conda activate smenv
@@ -127,7 +124,6 @@ then
   python $PATH_SCRIPT/bids_registration.py --model-path $PATH_SCRIPT/model/$REGISTRATION_MODEL --fx-img-path $file_t1_before_proc --mov-img-path $file_t2_before_proc --fx-img-contrast T1w --one-cpu-tf False
   conda deactivate
 
-  file_t1="${SES}_T1w_proc"
   file_t2="${SES}_T2w_aff_reg_proc"
   file_t2_reg="${SES}_T2w_aff_reg_proc_reg_to_T1w"
 
