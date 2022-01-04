@@ -36,7 +36,7 @@ if __name__ == "__main__":
     p.add_argument('--append', type=int, required=False, default=1, choices=[0, 1],
                    help="Append results as a new line in the output csv file instead of overwriting it.")
 
-    p.add_argument('--min-dice', required=False, type=int, default=80,
+    p.add_argument('--min-dice', required=False, type=int, default=0,
                    help="Minimum Dice score expected (percentage, to deal with int). If lower and not last-eval then "
                         "return a sys.exit(1) to signal this low score in the bash script and proceed to an "
                         "affine registration prior to the model's one")
