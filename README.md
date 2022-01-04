@@ -82,13 +82,7 @@ The spinal cord segmentations are saved and used to compute the volume overlap (
 
 Additionally, a Quality Control (QC) report is generated using [`sct_qc`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-qc) from SCT allowing to control the spinal cord segmentations as well as the spinal cord registration. This report takes the form of a `.html` file and can be found at `qc/index.html` in your result folder.
 
-If the registration result obtained for a certain subject is not as high as desired (based on the Dice score of the spinal cord segmentations), an affine (rigid) registration is done on the input volumes before performing once again the deformable registration with the registration model specified in the shell script. The new results will be assessed with the second part of the pipeline and only these new results will be saved in the different files.
-Whether to enter this path of the pipeline or not is monitored by the Dice score obtained on the spinal cord segmentations and the limit fixed in the bash script with the parameter `MIN_SC_DICE_EXPECTED_PERC`. This latter can be set to 0 to avoid using the affine registration on any subjects.
-The addition of affine registration in the pipeline is thus optional and can be used as desired by the user to optimize the trade-off between additional computation time and improved registration results for subjects with volumes that are initially in different affine spaces.
-
-The affine registration step is done with [`sct_register_multimodal`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-register-multimodal) from the [Spinal Cord Toolbox](https://spinalcordtoolbox.com/index.html) and using the centermass algorithm, which is a slice wise center of mass alignment done on the spinal cord segmentations (computed on the original input volumes).
-
-<img width="1020" alt="Capture d’écran 2021-12-22 à 16 53 15" src="https://user-images.githubusercontent.com/32447627/147159446-208a8b3a-04b6-4143-83fc-8a41464e960e.png">
+<img width="900" alt="Capture d’écran 2021-12-03 à 17 30 01" src="https://user-images.githubusercontent.com/32447627/144681407-635ad819-be82-41de-acee-b573ab31aba5.png">
 
 The files obtained during the process (segmentation, processed volumes or deformation fields) are organised into different folders. Two parameters at the beginning of the shell script are monitoring the organisation of the output files in the `anat` folder:
 - `DEBUGGING` 
@@ -102,6 +96,24 @@ The files obtained during the process (segmentation, processed volumes or deform
 In the project directory, if your BIDS dataset is in the same directory in the `bids_dataset` folder, you can execute the following command to run the registration and evaluation pipeline:
 ```
 sct_run_batch -jobs 1 -path-data bids_dataset -path-out res_registration -script pipeline_bids_register_evaluate.sh
+```
+
+⚠️ To use this pipeline you should [install SCT](https://spinalcordtoolbox.com/user_section/installation.html) and have it active in your working environment when running the shell script. The script has been tested with SCT version [5.4](https://github.com/spinalcordtoolbox/spinalcordtoolbox/releases/tag/5.4). 
+
+## Registration & Evaluation pipeline with optional affine registration step
+
+After having followed the same process as the one described in the above section, if the registration result obtained for a certain subject is not as high as desired (based on the Dice score of the spinal cord segmentations), an affine (rigid) registration is done on the input volumes before performing once again the deformable registration with the registration model specified in the shell script. The new results will be assessed with the second part of the pipeline and only these new results will be saved in the different files.
+Whether to enter this path of the pipeline or not is monitored by the Dice score obtained on the spinal cord segmentations and the limit fixed in the bash script with the parameter `MIN_SC_DICE_EXPECTED_PERC`. This latter can be set to 0 to avoid using the affine registration on any subjects.
+The addition of affine registration in the pipeline is thus optional and can be used as desired by the user to optimize the trade-off between additional computation time and improved registration results for subjects with volumes that are initially in different affine spaces.
+
+The affine registration step is done with [`sct_register_multimodal`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-register-multimodal) from the [Spinal Cord Toolbox](https://spinalcordtoolbox.com/index.html) and using the centermass algorithm, which is a slice wise center of mass alignment done on the spinal cord segmentations (computed on the original input volumes).
+
+<img width="1020" alt="Capture d’écran 2021-12-22 à 16 53 15" src="https://user-images.githubusercontent.com/32447627/147159446-208a8b3a-04b6-4143-83fc-8a41464e960e.png">
+
+**To run the shell script**, [`sct_run_batch`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-run-batch) from SCT is used.  
+In the project directory, if your BIDS dataset is in the same directory in the `bids_dataset` folder, you can execute the following command to run the registration and evaluation pipeline:
+```
+sct_run_batch -jobs 1 -path-data bids_dataset -path-out res_registration -script pipeline_bids_register_evaluate_opt_affine.sh
 ```
 
 ⚠️ To use this pipeline you should [install SCT](https://spinalcordtoolbox.com/user_section/installation.html) and have it active in your working environment when running the shell script. The script has been tested with SCT version [5.4](https://github.com/spinalcordtoolbox/spinalcordtoolbox/releases/tag/5.4). 
