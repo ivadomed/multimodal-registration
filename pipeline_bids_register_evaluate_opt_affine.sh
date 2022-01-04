@@ -2,9 +2,12 @@
 #
 # Register T2w volumes to T1w volumes and evaluate the registration by computing the volume overlap of the spinal cord
 # segmentations of the volumes involved in the process and the mutual information between these volumes as well
+# If the result obtained (Dice score of SC segmentation) for a specific subject is below a threshold specified, an
+# affine registration step is added in the process for this subject before performing the (deformable) registration
+# using the registration model REGISTRATION_MODEL.
 #
 # Usage:
-# sct_run_batch -jobs 1 -path-data bids_dataset -path-out res_registration -script pipeline_bids_register_evaluate.sh
+# sct_run_batch -jobs 1 -path-data bids_dataset -path-out res_registration -script pipeline_bids_register_evaluate_opt_affine.sh
 #
 #
 # Author: Evan Béal
