@@ -74,7 +74,7 @@ def register(reg_model, fx_im_path, mov_im_path, fx_contrast='T1w'):
                                      np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
 
     moved = nib.Nifti1Image(moved[0, ..., 0], fixed.affine)
-    warp = nib.Nifti1Image(warp[0, ..., 0], fixed.affine)
+    warp = nib.Nifti1Image(warp[0, ...], fixed.affine)
 
     nib.save(moved, os.path.join(f'{mov_im_path}_proc_reg_to_{fx_contrast}.nii.gz'))
     nib.save(warp, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))

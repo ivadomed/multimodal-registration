@@ -62,7 +62,7 @@ def run_main(model_path, fx_im_path, mov_im_path, res_dir='res',
     nib.save(moving, os.path.join(f'{mov_im_path}_preproc.nii.gz'))
 
     moved = nib.Nifti1Image(moved[0, ..., 0], fixed.affine)
-    warp = nib.Nifti1Image(warp[0, ..., 0], fixed.affine)
+    warp = nib.Nifti1Image(warp[0, ...], fixed.affine)
 
     os.makedirs(res_dir, exist_ok=True)
 
