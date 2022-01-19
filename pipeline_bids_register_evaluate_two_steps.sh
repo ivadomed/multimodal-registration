@@ -82,20 +82,14 @@ CONDA_BASE=$(conda info --base)
 source $CONDA_BASE/etc/profile.d/conda.sh
 
 conda activate smenv
-# ---- First registration step ---- #
+# ---- First & Second registration steps ---- #
 # Perform processing and registration
-python $PATH_SCRIPT/bids_registration.py --model-path $PATH_SCRIPT/model/$AFFINE_REGISTRATION_MODEL --fx-img-path $file_t1_before_proc --mov-img-path $file_t2_before_proc --fx-img-contrast T1w --one-cpu-tf True
+python $PATH_SCRIPT/bids_two_steps_registration.py --model1-path $PATH_SCRIPT/model/$AFFINE_REGISTRATION_MODEL --model2-path $PATH_SCRIPT/model/$DEFORMABLE_REGISTRATION_MODEL --fx-img-path $file_t1_before_proc --mov-img-path $file_t2_before_proc --fx-img-contrast T1w --one-cpu-tf True
+conda deactivate
 
 file_t1="${SES}_T1w_proc"
 file_t2="${SES}_T2w_proc"
 file_t2_reg="${SES}_T2w_proc_reg_to_T1w"
-
-# ---- Second registration step ---- #
-# Perform processing and registration
-python $PATH_SCRIPT/bids_registration.py --model-path $PATH_SCRIPT/model/$DEFORMABLE_REGISTRATION_MODEL --fx-img-path $file_t1 --mov-img-path $file_t2_reg --fx-img-contrast T1w --one-cpu-tf True --already-preproc 1
-conda deactivate
-
-file_t2_reg="${SES}_T2w_proc_reg_to_T1w_proc_reg_to_T1w"
 
 # Segment spinal cord
 segment $file_t1 "t1"
@@ -104,7 +98,7 @@ segment $file_t2_reg "t2"
 
 file_t1_seg="${SES}_T1w_proc_seg"
 file_t2_seg="${SES}_T2w_proc_seg"
-file_t2_reg_seg="${SES}_T2w_proc_reg_to_T1w_proc_reg_to_T1w_seg"
+file_t2_reg_seg="${SES}_T2w_proc_reg_to_T1w_seg"
 
 conda activate smenv
 # Compute Dice score of SC segmentation overlap before and after registration and save the results in a csv file
@@ -131,7 +125,7 @@ mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w.json" "${PATH_DATA_PROCESS
 
 mkdir res
 mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T1w_proc.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T1w_proc.nii.gz"
-mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w_proc_reg_to_T1w_proc_reg_to_T1w.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T2w_proc_reg_to_T1w.nii.gz"
+mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w_proc_reg_to_T1w.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${SES}_T2w_proc_reg_to_T1w.nii.gz"
 
 if [ $DEBUGGING == 1 ]
 then
@@ -142,9 +136,6 @@ then
      mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/$file" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/seg/$file"
   done
   mkdir add_res
-  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w_proc_reg_to_T1w.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/add_res/${SES}_T2w_proc_reg_to_T1w_after_first_step.nii.gz"
-  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w_proc_field_to_T1w.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/add_res/${SES}_T2w_proc_field_to_T1w_after_first_step.nii.gz"
-  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${SES}_T2w_proc_reg_to_T1w_proc_field_to_T1w.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/add_res/${SES}_T2w_proc_field_to_T1w.nii.gz"
   filenames=`ls ./*.nii.gz`
   for file in $filenames
   do
