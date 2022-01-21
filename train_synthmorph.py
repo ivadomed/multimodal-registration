@@ -14,7 +14,6 @@ The differences with the file provided in the voxelmorph repository include:
 import sys
 import os
 import argparse
-import contextlib
 import tqdm
 import json
 
@@ -255,11 +254,6 @@ if __name__ == "__main__":
     # ----                                   SETTING MODELS PARAMETERS                                     ---- #
     # -------------------------------------------------------------------------------------------------------- #
 
-    # multi-GPU support
-    context = contextlib.nullcontext()
-    if nb_devices > 1:
-        context = tf.distribute.MirroredStrategy().scope()
-
     # model configuration (grayscale images generation)
     gen_args = dict(
         in_shape=in_shape,
@@ -287,7 +281,8 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------------------------------------- #
 
     # build model
-    with context:
+    strategy = 'MirroredStrategy' if nb_devices > 1 else 'get_strategy'
+    with getattr(tf.distribute, strategy)().scope():
 
         # generation of grayscale images
         gen_model_1 = ne.models.labels_to_image(**gen_args, id=0)
@@ -304,9 +299,11 @@ if __name__ == "__main__":
 
         # losses and compilation
         if data['zero_borders_maps'] or data['zero_borders_maps_val']:
-            model.add_loss(losses.dice_loss_zeropad(map_2, pred) + tf.repeat(1., data['batch_size']))
+            const = tf.ones(shape=data['batch_size'] // nb_devices)
+            model.add_loss(losses.dice_loss_zeropad(map_2, pred) + const)
         else:
-            model.add_loss(vxm.losses.Dice().loss(map_2, pred) + tf.repeat(1., data['batch_size']))
+            const = tf.ones(shape=data['batch_size'] // nb_devices)
+            model.add_loss(vxm.losses.Dice().loss(map_2, pred) + const)
         model.add_loss(vxm.losses.Grad('l2', loss_mult=data['reg_param']).loss(None, flow))
         model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=data['lr']))
         model.summary()
