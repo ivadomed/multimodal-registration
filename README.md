@@ -4,13 +4,23 @@ Repository for training and using a contrast agnostic registration model based o
 
 ## Description
 
-This repository contains a file `train_synthmorph.py` allowing to easily use the SynthMorph method to train a contrast-invariant registration model from a config file. The code has also been slightly modified to try to adapt the model to zero-padded volumes. Some additional files are provided to perform registration starting from volumes of any size (pre-processing step included in the registration file) and to be able to generate unregistered volumes by applying a deformation field synthesized from noise distribution.
+This repository contains a file `train_synthmorph.py` allowing to easily use the SynthMorph method to train a contrast-invariant registration model from a config file (.json). Some additional files are provided to perform registration starting from volumes of any size (pre-processing step included in the registration file) and to be able to generate unregistered volumes by applying a deformation field synthesized from noise distribution.
+
+In addition, different pipelines (.sh shell script) are provided: `pipeline_bids_register_evaluate.sh`, `pipeline_bids_register_evaluate_opt_affine.sh`, ...
+These pipelines offer a framework for T2w volume registration to T1w volume for each subject of any dataset following the Brain Imaging Data Structure ([BIDS](https://bids.neuroimaging.io/)) convention. Evaluation tools are included in the pipeline (using different features from the Spinal Cord Toolbox ([SCT](https://spinalcordtoolbox.com/)) to assess the registration results, focusing on the spinal cord.
 
 This strategy of learning contrast-invariant registration is explored in regard of the IvadoMed’s issue [#659](https://github.com/ivadomed/ivadomed/issues/659) on multimodal segmentation tasks with non-coregistered data. Adding a contrast agnostic registration model as a preprocessing step in the IvadoMed’s pipeline may enable the use of multimodal data for segmentation tasks even when the data are not yet registered.    
 
+## Dependencies
+
+- [Voxelmorph](https://github.com/voxelmorph/voxelmorph) commit: 52dd120f3ae9b0ab0fde5d0efe50627a4528bc9f
+- [Neurite](https://github.com/adalca/neurite) commit: c7bb05d5dae47d2a79e0fe5a8284f30b2304d335
+- [Pystrum](https://github.com/adalca/pystrum) commit: 8cd5c483195971c0c51e9809f33aa04777aa35c8
+- [SCT](https://spinalcordtoolbox.com/) version: [5.4](https://github.com/spinalcordtoolbox/spinalcordtoolbox/releases/tag/5.4)
+
 ## Getting started
 
-This repo has been tested with Python 3.9. Follow the steps below to use this repo:
+This repo has been tested with Python 3.9, Tensorflow 2.7.0 and Keras 2.7.0. Follow the steps below to use this repo:
 1. Clone the project repository: `git clone https://github.com/ivadomed/multimodal-registration.git`
 2. In the project folder, clone the repositories that are used by this project:
 ```
