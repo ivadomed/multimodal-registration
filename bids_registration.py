@@ -121,6 +121,54 @@ def preprocess(data, im_nii, mov_im_nii):
     return fx_preproc_nii, mov_preproc_nii, lst_subvol_fx, lst_subvol_mov, lst_coords_subvol
 
 
+def get_def_field_from_subvol(model_in_shape, im_shape, lst_coords_subvol, lst_warp_subvol):
+    """
+    Create a map of weights, apply it on the warping fields obtained with the different subvolumes,
+    construct the final warping field and return it
+    """
+    # Create a map of weights that will be applied on the different warping fields to reduce the boundaries effect
+    # via a weighted average of the overlapping volumes (between the volumes) giving more weights to the inside part
+    x, y, z = model_in_shape[0]//2, model_in_shape[1]//2, model_in_shape[2]//2
+    grid = np.mgrid[-x:x, -y:y, -z:z]
+    w_map = np.maximum(np.abs(grid[0]), np.abs(grid[1]))
+    w_map = np.maximum(w_map, np.abs(grid[2]))
+    # The center of the volume has a weight of 1 and then it decreases linearly towards the boundaries
+    w_map = 1 - w_map/(np.max(w_map) + 1)
+
+    # Get the map representing the weights of all the subvolumes and place the map to the correct location of each
+    # subvolume
+    sum_weights = np.zeros((im_shape[0], im_shape[1], im_shape[2]))
+    w_map_subvol_lst = []
+    warp_subvol_lst = []
+    for coords, warp in zip(lst_coords_subvol, lst_warp_subvol):
+        w_map_subvol = np.zeros((im_shape[0], im_shape[1], im_shape[2]))
+        warp_field_tmp = np.zeros((im_shape[0], im_shape[1], im_shape[2], 3))
+        x_min, x_max, y_min, y_max, z_min, z_max = coords
+        sum_weights[x_min:x_max, y_min:y_max, z_min:z_max] += w_map
+        w_map_subvol[x_min:x_max, y_min:y_max, z_min:z_max] = w_map
+        warp_field_tmp[x_min:x_max, y_min:y_max, z_min:z_max, :] = warp
+        w_map_subvol_lst.append(w_map_subvol)
+        warp_subvol_lst.append(warp_field_tmp)
+
+    # To avoid division by 0, replace the sum weights that are 0 by 1 before the division (may appear for the voxels
+    # at the border of the original volume if the size of this latter is even on certain axes)
+    sum_weights[sum_weights == 0] = 1
+
+    # Divide the weight map of each subvolume by the sum of all the weights of the different subvolumes to determine
+    # the relative weight of each subvolume in the prediction of the final displacement vector
+    w_map_subvol_final_lst = []
+    for w_map_subvol in w_map_subvol_lst:
+        w_map_subvol_final_lst.append(w_map_subvol/sum_weights)
+
+    # Reconstruct the warping field
+    warp_field = np.zeros((im_shape[0], im_shape[1], im_shape[2], 3))
+    for w_subvol, warp in zip(w_map_subvol_final_lst, warp_subvol_lst):
+        for i in range(3):
+            warp_field[..., i] += w_subvol * warp[..., i]
+
+    return warp_field
+
+
 def register(data, reg_model, fx_im_path, mov_im_path, fx_contrast='T1w'):
     """
     Preprocess the two images and register the moving image to the fixed one using the provided model.
@@ -183,45 +231,7 @@ def register(data, reg_model, fx_im_path, mov_im_path, fx_contrast='T1w'):
         else:
             warp_field_lst_good_dim = warp_field_lst
 
-        # Create a map of weights that will be applied on the different warping fields to reduce the boundaries effect
-        # via a weighted average of the overlapping volumes (between the volumes) giving more weights to the inside part
-        x, y, z = model_in_shape[0]//2, model_in_shape[1]//2, model_in_shape[2]//2
-        grid = np.mgrid[-x:x, -y:y, -z:z]
-        w_map = np.maximum(np.abs(grid[0]), np.abs(grid[1]))
-        w_map = np.maximum(w_map, np.abs(grid[2]))
-        # The center of the volume has a weight of 1 and then it decreases linearly towards the boundaries
-        w_map = 1 - w_map/(np.max(w_map) + 1)
-
-        # Get the map representing the weights of all the subvolumes and place the map to the correct location of each
-        # subvolume
-        sum_weights = np.zeros((moving.shape[0], moving.shape[1], moving.shape[2]))
-        w_map_subvol_lst = []
-        warp_subvol_lst = []
-        for coords, warp in zip(lst_coords_subvol, warp_field_lst_good_dim):
-            w_map_subvol = np.zeros((moving.shape[0], moving.shape[1], moving.shape[2]))
-            warp_field_tmp = np.zeros((moving.shape[0], moving.shape[1], moving.shape[2], 3))
-            x_min, x_max, y_min, y_max, z_min, z_max = coords
-            sum_weights[x_min:x_max, y_min:y_max, z_min:z_max] += w_map
-            w_map_subvol[x_min:x_max, y_min:y_max, z_min:z_max] = w_map
-            warp_field_tmp[x_min:x_max, y_min:y_max, z_min:z_max, :] = warp
-            w_map_subvol_lst.append(w_map_subvol)
-            warp_subvol_lst.append(warp_field_tmp)
-
-        # To avoid division by 0, replace the sum weights that are 0 by 1 before the division (may appear for the voxels
-        # at the border of the original volume if the size of this latter is even on certain axes)
-        sum_weights[sum_weights == 0] = 1
-
-        # Divide the weight map of each subvolume by the sum of all the weights of the different subvolumes to determine
-        # the relative weight of each subvolume in the prediction of the final displacement vector
-        w_map_subvol_final_lst = []
-        for w_map_subvol in w_map_subvol_lst:
-            w_map_subvol_final_lst.append(w_map_subvol/sum_weights)
-
-        # Reconstruct the warping field
-        warp_field = np.zeros((moving.shape[0], moving.shape[1], moving.shape[2], 3))
-        for w_subvol, warp in zip(w_map_subvol_final_lst, warp_subvol_lst):
-            for i in range(3):
-                warp_field[..., i] += w_subvol * warp[..., i]
+        warp_field = get_def_field_from_subvol(model_in_shape, moving.shape, lst_coords_subvol, warp_field_lst_good_dim)
 
         def_field_nii = nib.Nifti1Image(warp_field, affine=fixed.affine)
         nib.save(def_field_nii, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
