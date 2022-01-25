@@ -117,3 +117,20 @@ sct_run_batch -jobs 1 -path-data bids_dataset -path-out res_registration -script
 ```
 
 ⚠️ To use this pipeline you should [install SCT](https://spinalcordtoolbox.com/user_section/installation.html) and have it active in your working environment when running the shell script. The script has been tested with SCT version [5.4](https://github.com/spinalcordtoolbox/spinalcordtoolbox/releases/tag/5.4). 
+
+## Registration & Evaluation pipeline for large displacements (Two steps approach)
+
+This pipeline (`pipeline_bids_register_evaluate_two_steps.sh`) is an updated version of the original pipeline (`pipeline_bids_register_evaluate.sh`) that uses two registration models successively to register T2w volume to T1w volume for each subject of any dataset following BIDS convention. This approach of using two successive registration models (the registered volume obtained from the first registration model is used as an input for the second model) improves the registration accuracy, especially for largely displaced volumes.  
+The first model aims to ensure that the two volumes to register are well aligned (similar to a rigid or affine registration) whereas the second model refines the registration. The two models are outputting a deformation field and are therefore doing deformable registration. However, the two models used should be trained with different characteristics. The first one should learn to register data deformed with a smooth field whereas the second model should learn on data with a lot of small deformations everywhere. This can be done for example by setting the `vel_res` parameter of the config file (when training the registration model) to `[32, 64]` for the first model and to `16` for the second model. 
+This approach worked well to register data that have been randomly affine transformed (translation, scaling and rotation) which is not necessarily the case when using a single registration model.  
+To use this approach, you need two registration models and specify them in the `pipeline_bids_register_evaluate_two_steps.sh` file. 
+
+<img width="1035" alt="Capture d’écran 2022-01-04 à 16 21 10" src="https://user-images.githubusercontent.com/32447627/148125445-a8b96f20-8e3a-4f1e-87d4-032d647c3e1b.png">
+
+**To run the shell script**, [`sct_run_batch`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-run-batch) from SCT is used.  
+In the project directory, if your BIDS dataset is in the same directory in the `bids_dataset` folder, you can execute the following command to run the registration and evaluation pipeline:
+```
+sct_run_batch -jobs 1 -path-data bids_dataset -path-out res_registration -script pipeline_bids_register_evaluate_two_steps.sh
+```
+
+⚠️ To use this pipeline you should [install SCT](https://spinalcordtoolbox.com/user_section/installation.html) and have it active in your working environment when running the shell script. The script has been tested with SCT version [5.4](https://github.com/spinalcordtoolbox/spinalcordtoolbox/releases/tag/5.4). 
