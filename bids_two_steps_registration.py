@@ -1,5 +1,5 @@
 """
-File to load a trained registration model and register two images together.
+File to load two trained registration models and register two images together using the models one after the other.
 It includes a preprocessing step to transform the volumes to the dimensions required by the model.
 The images will be processed (and saved as im_name_proc) to be used in the registration model and then registered.
 The registered image is saved (as im_name_proc_reg_to_CONTRAST). The deformation field is also saved.
@@ -13,6 +13,7 @@ import argparse
 
 import numpy as np
 import tensorflow as tf
+import tensorflow.keras.backend as K
 import nibabel as nib
 import voxelmorph as vxm
 
@@ -53,42 +54,53 @@ def preprocess(im_nii, mov_im_nii, in_shape=(160, 160, 192)):
     return resampled_nii, mov_resampled_nii
 
 
-def register(reg_model, fx_im_path, mov_im_path, fx_contrast='T1w'):
+def register(reg_model1, reg_model2, fx_im_path, mov_im_path, fx_contrast='T1w', already_preproc=0):
     """
     Preprocess the two images and register the moving image to the fixed one using the provided model.
     Save the warped image and the deformation field.
     """
 
-    model_in_shape = reg_model.inputs[0].shape[1:-1]
+    if already_preproc:
+        fixed = nib.load(f'{fx_im_path}.nii.gz')
+        moving = nib.load(f'{mov_im_path}.nii.gz')
+    else:
+        model_in_shape = reg_model1.inputs[0].shape[1:-1]
 
-    fixed_nii = nib.load(f'{fx_im_path}.nii.gz')
-    moving_nii = nib.load(f'{mov_im_path}.nii.gz')
+        fixed_nii = nib.load(f'{fx_im_path}.nii.gz')
+        moving_nii = nib.load(f'{mov_im_path}.nii.gz')
 
-    fixed, moving = preprocess(fixed_nii, moving_nii, model_in_shape)
+        fixed, moving = preprocess(fixed_nii, moving_nii, model_in_shape)
 
-    nib.save(fixed, os.path.join(f'{fx_im_path}_proc.nii.gz'))
-    nib.save(moving, os.path.join(f'{mov_im_path}_proc.nii.gz'))
+        nib.save(fixed, os.path.join(f'{fx_im_path}_proc.nii.gz'))
+        nib.save(moving, os.path.join(f'{mov_im_path}_proc.nii.gz'))
 
-    moved, warp = reg_model.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
-                                     np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
+    moved_first_reg, warp_first_reg = reg_model1.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
+                                                          np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
+
+    moved, warp_second_reg = reg_model2.predict([moved_first_reg,
+                                                 np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
+
+    warp = vxm.utils.compose([K.constant(warp_first_reg[0, ...]), K.constant(warp_second_reg[0, ...])])
+    warp_arr = K.eval(warp)
 
     moved = nib.Nifti1Image(moved[0, ..., 0], fixed.affine)
-    warp = nib.Nifti1Image(warp[0, ...], fixed.affine)
+    warp = nib.Nifti1Image(warp_arr, fixed.affine)
 
     nib.save(moved, os.path.join(f'{mov_im_path}_proc_reg_to_{fx_contrast}.nii.gz'))
     nib.save(warp, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
 
 
-def run_main(reg_model_path, fx_im_path, mov_im_path, fx_im_contrast='T1w'):
+def run_main(reg_model1_path, reg_model2_path, fx_im_path, mov_im_path, fx_im_contrast='T1w', already_preproc=0):
     """
     Load the registration model
     Preprocess the fixed and moving images
     Register
     """
-    # Load the registration model
-    model = vxm.networks.VxmDense.load(reg_model_path, input_model=None)
+    # Load the registration models
+    model1 = vxm.networks.VxmDense.load(reg_model1_path, input_model=None)
+    model2 = vxm.networks.VxmDense.load(reg_model2_path, input_model=None)
 
-    register(model, fx_im_path, mov_im_path, fx_contrast=fx_im_contrast)
+    register(model1, model2, fx_im_path, mov_im_path, fx_contrast=fx_im_contrast, already_preproc=already_preproc)
 
 
 if __name__ == "__main__":
@@ -97,7 +109,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # parameters to be specified by the user
-    parser.add_argument('--model-path', required=True, type=str, help='path to the registration model')
+    parser.add_argument('--model1-path', required=True, type=str,
+                        help='path to the registration model (for affine registration)')
+    parser.add_argument('--model2-path', required=True, type=str,
+                        help='path to the registration model (for deformable registration)')
 
     parser.add_argument('--fx-img-path', required=True, help='path to the fixed image')
     parser.add_argument('--mov-img-path', required=True, help='path to the moving image')
@@ -109,6 +124,9 @@ if __name__ == "__main__":
                         help='boolean to determine if the processes link to TF have access to one CPU (True) or all '
                              'the CPUs (False) {\'0\',\'1\', \'False\',\'True\'}')
 
+    parser.add_argument('--already-preproc', type=int, required=False, default=0, choices=[0, 1],
+                        help='Specify if the preprocessing step has already been done (1) or not (0)')
+
     args = parser.parse_args()
 
     if eval(args.one_cpu_tf):
@@ -116,4 +134,5 @@ if __name__ == "__main__":
         session_conf = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
         sess = tf.compat.v1.Session(config=session_conf)
 
-    run_main(args.model_path, args.fx_img_path, args.mov_img_path, args.fx_img_contrast)
+    run_main(args.model1_path, args.model2_path, args.fx_img_path,
+             args.mov_img_path, args.fx_img_contrast, args.already_preproc)
