@@ -2,6 +2,19 @@
 
 Repository for training and using a contrast agnostic registration model based on the work done in [SynthMorph](https://arxiv.org/pdf/2004.10282.pdf). The contrast agnostic registration model may later be used in [IvadoMed’s pipeline](https://ivadomed.org/). 
 
+## Table of contents
+
+[Description](#description)  
+[Dependencies](#dependencies)  
+[Getting started](#getting-started)  
+[Training an agnostic registration model](#training-an-agnostic-registration-model)  
+[Volumes registration](#volumes-registration)  
+[Generate and apply a deformation field](#generate-and-apply-a-deformation-field)  
+[Registration & Evaluation pipeline](#registration--evaluation-pipeline)  
+[Registration & Evaluation pipeline with optional affine registration step](#registration--evaluation-pipeline-with-optional-affine-registration-step)  
+[Registration & Evaluation pipeline for large displacements (Two steps approach)](#registration--evaluation-pipeline-for-large-displacements-two-steps-approach)
+
+
 ## Description
 
 This repository contains a file `train_synthmorph.py` allowing to easily use the SynthMorph method to train a contrast-invariant registration model from a config file (.json). Some additional files are provided to perform registration starting from volumes of any size (pre-processing step included in the registration file) and to be able to generate unregistered volumes by applying a deformation field synthesized from noise distribution.
