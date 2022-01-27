@@ -17,7 +17,6 @@ import nibabel as nib
 import voxelmorph as vxm
 
 from nilearn.image import resample_img
-from scipy.ndimage import zoom
 from nibabel.processing import resample_from_to
 
 
@@ -292,17 +291,27 @@ def register(data, reg_model, fx_im_path, mov_im_path, fx_contrast='T1w'):
         moved, warp = model.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
                                      np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
         warp_data = warp[0, ...]
+        
         is_warp_half_res = False if warp_data.shape[0] == model_in_shape[0] else True
         if is_warp_half_res:
-            warp_data = zoom(warp_data, (2, 2, 2, 1))
-        warp = nib.Nifti1Image(warp_data, fixed.affine)
+            warp_affine = np.copy(fixed.affine)
+            for i in range(3):
+                warp_affine[i, i] = warp_affine[i, i] * 2
+            warp = nib.Nifti1Image(warp_data, warp_affine)
+            warp = resample_nib(warp, new_size=[2, 2, 2, 1], new_size_type='factor', image_dest=None,
+                                interpolation='linear', mode='constant')
+        else:
+            warp = nib.Nifti1Image(warp_data, fixed.affine)
+            
         moved_nii = nib.Nifti1Image(moved[0, ..., 0], fixed.affine)
         nib.save(moved_nii, os.path.join(f'{mov_im_path}_proc_reg_to_{fx_contrast}.nii.gz'))
         nib.save(warp, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
         warp_in_original_space = resample_img(warp, target_affine=moving_nii.affine,
                                               target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
         nib.save(warp_in_original_space, os.path.join(f'{mov_im_path}_warp_original_dim.nii.gz'))
+        
     else:
+        
         warp_field_lst = []
         for fx_subvol, mov_subvol in zip(lst_subvol_fx, lst_subvol_mov):
             _, warp = model.predict([np.expand_dims(mov_subvol.squeeze(), axis=(0, -1)),
@@ -312,15 +321,31 @@ def register(data, reg_model, fx_im_path, mov_im_path, fx_contrast='T1w'):
         is_warp_half_res = False if warp_field_lst[0].shape[0] == model_in_shape[0] else True
 
         if is_warp_half_res:
-            warp_field_lst_good_dim = []
-            for warp in warp_field_lst:
-                warp_field_lst_good_dim.append(zoom(warp, (2, 2, 2, 1)))
+            model_in_shape = np.array(model_in_shape)
+            moving_shape = np.array(moving.shape)
+            for i in range(3):
+                model_in_shape[i] = model_in_shape[i] // 2
+                moving_shape[i] = moving_shape[i] // 2
+            new_coords = []
+            for coord in lst_coords_subvol:
+                x_min, x_max, y_min, y_max, z_min, z_max = coord
+                x_min, x_max, y_min, y_max, z_min, z_max = x_min // 2, x_max // 2, y_min // 2, y_max // 2, z_min // 2, z_max // 2
+                new_coords.append((x_min, x_max, y_min, y_max, z_min, z_max))
+            lst_coords_subvol = new_coords
         else:
-            warp_field_lst_good_dim = warp_field_lst
+            moving_shape = moving.shape
 
-        warp_field = get_def_field_from_subvol(model_in_shape, moving.shape, lst_coords_subvol, warp_field_lst_good_dim)
+        warp_field = get_def_field_from_subvol(model_in_shape, moving_shape, lst_coords_subvol, warp_field_lst)
 
-        def_field_nii = nib.Nifti1Image(warp_field, affine=fixed.affine)
+        if is_warp_half_res:
+            warp_affine = np.copy(fixed.affine)
+            for i in range(3):
+                warp_affine[i, i] = warp_affine[i, i] * 2
+            warp = nib.Nifti1Image(warp_field, warp_affine)
+            def_field_nii = resample_nib(warp, new_size=[2, 2, 2, 1], new_size_type='factor', image_dest=None,
+                                         interpolation='spline', mode='constant')
+        else:
+            def_field_nii = nib.Nifti1Image(warp_field, affine=fixed.affine)
         nib.save(def_field_nii, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
         warp_in_original_space = resample_img(def_field_nii, target_affine=moving_nii.affine,
                                               target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
