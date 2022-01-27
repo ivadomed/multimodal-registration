@@ -165,7 +165,14 @@ def preprocess(data, im_nii, mov_im_nii):
 
         # Determine how many subvolumes have to be created
         shape_in_vol = fx_img_res111.shape
-        min_perc = 0.1
+        min_perc = data['min_perc_overlap']
+        if min_perc >= 1:
+            if min_perc/100 < 1:
+                min_perc = min_perc/100
+            else:
+                min_perc = 0.1
+        elif min_perc <= 0:
+            min_perc = 0.1
 
         nb_sub_x_axis = int(shape_in_vol[0] / (in_shape[0] - min_perc * in_shape[0])) + 1
         nb_sub_y_axis = int(shape_in_vol[1] / (in_shape[1] - min_perc * in_shape[1])) + 1
@@ -311,7 +318,7 @@ def register(data, reg_model, fx_im_path, mov_im_path, fx_contrast='T1w'):
         nib.save(warp_in_original_space, os.path.join(f'{mov_im_path}_warp_original_dim.nii.gz'))
         
     else:
-        
+
         warp_field_lst = []
         for fx_subvol, mov_subvol in zip(lst_subvol_fx, lst_subvol_mov):
             _, warp = model.predict([np.expand_dims(mov_subvol.squeeze(), axis=(0, -1)),
@@ -408,6 +415,7 @@ if __name__ == "__main__":
     data = dict(
         use_subvol=True,
         subvol_size=[160, 160, 192],
+        min_perc_overlap=0.1,
         int_steps=5,
         int_res=2,
         svf_res=2,
