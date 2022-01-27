@@ -122,7 +122,7 @@ def resample_nib(image, new_size=None, new_size_type=None, image_dest=None, inte
     return img_r
 
 
-def preprocess(data, im_nii, mov_im_nii):
+def preprocess(model_inference_specs, im_nii, mov_im_nii):
     """
     Scale volumes and create subvolumes of the correct shape.
     Return the preprocessed volumes (scaling, zero-padding, isotropic resolution of 1mm) as well as the
@@ -159,14 +159,15 @@ def preprocess(data, im_nii, mov_im_nii):
                                      target_shape=new_img_shape, interpolation='continuous')
     mov_img_res111 = mov_resampled_nii.get_fdata()
 
-    if data['use_subvol']:
+    if model_inference_specs['use_subvol']:
 
-        in_shape = (int(np.ceil(data['subvol_size'][0] // 16)) * 16, int(np.ceil(data['subvol_size'][1] // 16)) * 16,
-                    int(np.ceil(data['subvol_size'][2] // 16)) * 16)
+        in_shape = (int(np.ceil(model_inference_specs['subvol_size'][0] // 16)) * 16,
+                    int(np.ceil(model_inference_specs['subvol_size'][1] // 16)) * 16,
+                    int(np.ceil(model_inference_specs['subvol_size'][2] // 16)) * 16)
 
         # Determine how many subvolumes have to be created
         shape_in_vol = fx_img_res111.shape
-        min_perc = data['min_perc_overlap']
+        min_perc = model_inference_specs['min_perc_overlap']
         if min_perc >= 1:
             if min_perc/100 < 1:
                 min_perc = min_perc/100
@@ -263,7 +264,7 @@ def get_def_field_from_subvol(model_in_shape, im_shape, lst_coords_subvol, lst_w
     return warp_field
 
 
-def register(data, reg_model1, reg_model2, fx_im_path, mov_im_path, fx_contrast='T1w'):
+def register(model_inference_specs, reg_model1, reg_model2, fx_im_path, mov_im_path, fx_contrast='T1w'):
     """
     Preprocess the two images and register the moving image to the fixed one using the provided model.
     Save the warped image and the deformation field.
@@ -273,23 +274,24 @@ def register(data, reg_model1, reg_model2, fx_im_path, mov_im_path, fx_contrast=
     moving_nii = nib.load(f'{mov_im_path}.nii.gz')
 
     fixed, moving, lst_subvol_fx, lst_subvol_mov, lst_coords_subvol = \
-        preprocess(data, fixed_nii, moving_nii)
+        preprocess(model_inference_specs, fixed_nii, moving_nii)
 
     nib.save(fixed, os.path.join(f'{fx_im_path}_proc.nii.gz'))
     nib.save(moving, os.path.join(f'{mov_im_path}_proc.nii.gz'))
 
-    if data['use_subvol']:
-        model_in_shape = (int(np.ceil(data['subvol_size'][0] // 16)) * 16, int(np.ceil(data['subvol_size'][1] // 16)) * 16,
-                          int(np.ceil(data['subvol_size'][2] // 16)) * 16)
+    if model_inference_specs['use_subvol']:
+        model_in_shape = (int(np.ceil(model_inference_specs['subvol_size'][0] // 16)) * 16,
+                          int(np.ceil(model_inference_specs['subvol_size'][1] // 16)) * 16,
+                          int(np.ceil(model_inference_specs['subvol_size'][2] // 16)) * 16)
     else:
         model_in_shape = fixed.get_fdata().shape
 
     reg_args = dict(
         inshape=model_in_shape,
-        int_steps=data['int_steps'],
-        int_resolution=data['int_res'],
-        svf_resolution=data['svf_res'],
-        nb_unet_features=(data['enc'], data['dec'])
+        int_steps=model_inference_specs['int_steps'],
+        int_resolution=model_inference_specs['int_res'],
+        svf_resolution=model_inference_specs['svf_res'],
+        nb_unet_features=(model_inference_specs['enc'], model_inference_specs['dec'])
     )
 
     model1 = vxm.networks.VxmDense(**reg_args)
@@ -298,7 +300,7 @@ def register(data, reg_model1, reg_model2, fx_im_path, mov_im_path, fx_contrast=
     model2 = vxm.networks.VxmDense(**reg_args)
     model2.set_weights(reg_model2.get_weights())
 
-    if not data['use_subvol']:
+    if not model_inference_specs['use_subvol']:
         moved_first_reg, warp_first_reg = model1.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
                                                           np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
         moved, warp_second_reg = model2.predict([moved_first_reg,
@@ -378,7 +380,7 @@ def register(data, reg_model1, reg_model2, fx_im_path, mov_im_path, fx_contrast=
         vxm.py.utils.save_volfile(first_moved_data, os.path.join(f'{mov_im_path}_proc_first_reg_to_{fx_contrast}.nii.gz'), fixed.affine)
 
         # ---- Second registration ---- #
-        fixed, moving, lst_subvol_fx, lst_subvol_mov, lst_coords_subvol = preprocess(data, fixed_nii, first_moved_nii)
+        fixed, moving, lst_subvol_fx, lst_subvol_mov, lst_coords_subvol = preprocess(model_inference_specs, fixed_nii, first_moved_nii)
 
         warp_field_lst = []
         for fx_subvol, mov_subvol in zip(lst_subvol_fx, lst_subvol_mov):
@@ -439,7 +441,7 @@ def register(data, reg_model1, reg_model2, fx_im_path, mov_im_path, fx_contrast=
     nib.save(moved_in_original_space, os.path.join(f'{mov_im_path}_reg_original_dim.nii.gz'))
 
 
-def run_main(data, reg_model1_path, reg_model2_path, fx_im_path, mov_im_path, fx_im_contrast='T1w'):
+def run_main(model_inference_specs, reg_model1_path, reg_model2_path, fx_im_path, mov_im_path, fx_im_contrast='T1w'):
     """
     Load the registration model
     Preprocess the fixed and moving images
@@ -449,7 +451,7 @@ def run_main(data, reg_model1_path, reg_model2_path, fx_im_path, mov_im_path, fx
     model1 = vxm.networks.VxmDense.load(reg_model1_path, input_model=None)
     model2 = vxm.networks.VxmDense.load(reg_model2_path, input_model=None)
 
-    register(data, model1, model2, fx_im_path, mov_im_path, fx_contrast=fx_im_contrast)
+    register(model_inference_specs, model1, model2, fx_im_path, mov_im_path, fx_contrast=fx_im_contrast)
 
 
 if __name__ == "__main__":
@@ -479,9 +481,9 @@ if __name__ == "__main__":
     # TODO - Add a config file where the parameters are specified
     # import json
     # with open(args.config_path) as config_file:
-    #     data = json.load(config_file)
+    #     model_inference_specs = json.load(config_file)
 
-    data = dict(
+    model_inference_specs = dict(
         use_subvol=True,
         subvol_size=[160, 160, 192],
         min_perc_overlap=0.1,
@@ -498,4 +500,4 @@ if __name__ == "__main__":
         session_conf = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
         sess = tf.compat.v1.Session(config=session_conf)
 
-    run_main(data, args.model1_path, args.model2_path, args.fx_img_path, args.mov_img_path, args.fx_img_contrast)
+    run_main(model_inference_specs, args.model1_path, args.model2_path, args.fx_img_path, args.mov_img_path, args.fx_img_contrast)

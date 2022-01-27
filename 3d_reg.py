@@ -115,7 +115,7 @@ def resample_nib(image, new_size=None, new_size_type=None, image_dest=None, inte
     return img_r
 
 
-def preprocess(data, im_nii, mov_im_nii):
+def preprocess(model_inference_specs, im_nii, mov_im_nii):
     """
     Scale volumes and create subvolumes of the correct shape.
     Return the preprocessed volumes (scaling, zero-padding, isotropic resolution of 1mm) as well as the
@@ -152,14 +152,15 @@ def preprocess(data, im_nii, mov_im_nii):
                                      target_shape=new_img_shape, interpolation='continuous')
     mov_img_res111 = mov_resampled_nii.get_fdata()
 
-    if data['use_subvol']:
+    if model_inference_specs['use_subvol']:
 
-        in_shape = (int(np.ceil(data['subvol_size'][0] // 16)) * 16, int(np.ceil(data['subvol_size'][1] // 16)) * 16,
-                    int(np.ceil(data['subvol_size'][2] // 16)) * 16)
+        in_shape = (int(np.ceil(model_inference_specs['subvol_size'][0] // 16)) * 16,
+                    int(np.ceil(model_inference_specs['subvol_size'][1] // 16)) * 16,
+                    int(np.ceil(model_inference_specs['subvol_size'][2] // 16)) * 16)
 
         # Determine how many subvolumes have to be created
         shape_in_vol = fx_img_res111.shape
-        min_perc = data['min_perc_overlap']
+        min_perc = model_inference_specs['min_perc_overlap']
         if min_perc >= 1:
             if min_perc/100 < 1:
                 min_perc = min_perc/100
@@ -256,7 +257,7 @@ def get_def_field_from_subvol(model_in_shape, im_shape, lst_coords_subvol, lst_w
     return warp_field
 
 
-def run_main(data, model_path, fx_im_path, mov_im_path, res_dir='res',
+def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir='res',
              out_im_path='warped_im', out_field_path='deform_field'):
     """
     Load a registration model, preprocess the two images and register the moving image to the fixed one.
@@ -274,26 +275,27 @@ def run_main(data, model_path, fx_im_path, mov_im_path, res_dir='res',
     moving_nii = nib.load(mov_im_path)
 
     fixed, moving, lst_subvol_fx, lst_subvol_mov, lst_coords_subvol = \
-        preprocess(data, fixed_nii, moving_nii)
+        preprocess(model_inference_specs, fixed_nii, moving_nii)
 
-    if data['use_subvol']:
-        model_in_shape = (int(np.ceil(data['subvol_size'][0] // 16)) * 16, int(np.ceil(data['subvol_size'][1] // 16)) * 16,
-                          int(np.ceil(data['subvol_size'][2] // 16)) * 16)
+    if model_inference_specs['use_subvol']:
+        model_in_shape = (int(np.ceil(model_inference_specs['subvol_size'][0] // 16)) * 16,
+                          int(np.ceil(model_inference_specs['subvol_size'][1] // 16)) * 16,
+                          int(np.ceil(model_inference_specs['subvol_size'][2] // 16)) * 16)
     else:
         model_in_shape = fixed.get_fdata().shape
 
     reg_args = dict(
         inshape=model_in_shape,
-        int_steps=data['int_steps'],
-        int_resolution=data['int_res'],
-        svf_resolution=data['svf_res'],
-        nb_unet_features=(data['enc'], data['dec'])
+        int_steps=model_inference_specs['int_steps'],
+        int_resolution=model_inference_specs['int_res'],
+        svf_resolution=model_inference_specs['svf_res'],
+        nb_unet_features=(model_inference_specs['enc'], model_inference_specs['dec'])
     )
 
     model = vxm.networks.VxmDense(**reg_args)
     model.set_weights(reg_model.get_weights())
 
-    if not data['use_subvol']:
+    if not model_inference_specs['use_subvol']:
         moved, warp = model.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
                                      np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
         warp_data = warp[0, ...]
@@ -398,9 +400,9 @@ if __name__ == "__main__":
     # TODO - Add a config file where the parameters are specified
     # import json
     # with open(args.config_path) as config_file:
-    #     data = json.load(config_file)
+    #     model_inference_specs = json.load(config_file)
 
-    data = dict(
+    model_inference_specs = dict(
         use_subvol=True,
         subvol_size=[160, 160, 192],
         min_perc_overlap=0.1,
@@ -412,4 +414,4 @@ if __name__ == "__main__":
     )
     # ***************************************************************************************
 
-    run_main(data, args.model_path, args.fx_img_path, args.mov_img_path, args.res_dir, args.out_img_name, args.def_field_name)
+    run_main(model_inference_specs, args.model_path, args.fx_img_path, args.mov_img_path, args.res_dir, args.out_img_name, args.def_field_name)
