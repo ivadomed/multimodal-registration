@@ -69,8 +69,8 @@ rsync -avzh $PATH_DATA/$SUBJECT/ ${SUBJECT}
 echo $PWD
 cd ${SUBJECT}/anat/
 
-file_t1_before_proc="${SES}_T1w"
-file_t2_before_proc="${SES}_T2w"
+file_t1_before_proc="${SES}_T1w.nii.gz"
+file_t2_before_proc="${SES}_T2w.nii.gz"
 
 CONDA_BASE=$(conda info --base)
 source $CONDA_BASE/etc/profile.d/conda.sh

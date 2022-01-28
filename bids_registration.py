@@ -270,8 +270,11 @@ def register(model_inference_specs, reg_model, fx_im_path, mov_im_path, fx_contr
     Save the warped image and the deformation field.
     """
 
-    fixed_nii = nib.load(f'{fx_im_path}.nii.gz')
-    moving_nii = nib.load(f'{mov_im_path}.nii.gz')
+    fixed_nii = nib.load(fx_im_path)
+    moving_nii = nib.load(mov_im_path)
+    
+    fx_im_path = fx_im_path.split(".")[0]
+    mov_im_path = mov_im_path.split(".")[0]
 
     fixed, moving, lst_subvol_fx, lst_subvol_mov, lst_coords_subvol = \
         preprocess(model_inference_specs, fixed_nii, moving_nii)
