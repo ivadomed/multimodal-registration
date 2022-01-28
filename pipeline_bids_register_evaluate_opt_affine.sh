@@ -57,9 +57,11 @@ DEBUGGING=1
 # Choose whether to keep original naming and location of input volumes for the registered volumes. It's recommended to set the value to 1 if the dataset
 # will later be used for other tasks, such as segmentation. If the value is 1, the res folder will be removed and the
 # registered volumes will be directly present in the anat folder and with the same names as the original volumes
-KEEP_ORI_NAMING_LOC=1
+KEEP_ORI_NAMING_LOC=0
 # Choose the registration model to use (should be in the model folder)
 REGISTRATION_MODEL="registration_model.h5"
+# Choose the config file to use (should be in the config folder)
+INFERENCE_CONFIG='config_inference.json'
 # Set the following value to 0 to not perform affine registration in any case
 MIN_SC_DICE_EXPECTED_PERC=80
 
@@ -79,7 +81,7 @@ CONDA_BASE=$(conda info --base)
 source $CONDA_BASE/etc/profile.d/conda.sh
 conda activate smenv
 # Perform processing and registration
-python $PATH_SCRIPT/bids_registration.py --model-path $PATH_SCRIPT/model/$REGISTRATION_MODEL --fx-img-path $file_t1_before_proc --mov-img-path $file_t2_before_proc --fx-img-contrast T1w --one-cpu-tf True
+python $PATH_SCRIPT/bids_registration.py --model-path $PATH_SCRIPT/model/$REGISTRATION_MODEL --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path $file_t1_before_proc --mov-img-path $file_t2_before_proc --fx-img-contrast T1w --one-cpu-tf False
 conda deactivate
 
 file_t1="${SES}_T1w_proc"
@@ -126,7 +128,7 @@ then
 
   conda activate smenv
   # Perform processing and model's registration
-  python $PATH_SCRIPT/bids_registration.py --model-path $PATH_SCRIPT/model/$REGISTRATION_MODEL --fx-img-path $file_t1_before_proc --mov-img-path $file_t2_before_proc --fx-img-contrast T1w --one-cpu-tf False
+  python $PATH_SCRIPT/bids_registration.py --model-path $PATH_SCRIPT/model/$REGISTRATION_MODEL --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path $file_t1_before_proc --mov-img-path $file_t2_before_proc --fx-img-contrast T1w --one-cpu-tf False
   conda deactivate
 
   file_t2="${SES}_T2w_aff_reg_proc"

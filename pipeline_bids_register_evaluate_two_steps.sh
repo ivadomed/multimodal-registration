@@ -56,7 +56,7 @@ DEBUGGING=1
 # Choose whether to keep original naming and location of input volumes for the registered volumes. It's recommended to set the value to 1 if the dataset
 # will later be used for other tasks, such as segmentation. If the value is 1, the res folder will be removed and the
 # registered volumes will be directly present in the anat folder and with the same names as the original volumes
-KEEP_ORI_NAMING_LOC=1
+KEEP_ORI_NAMING_LOC=0
 
 # Choose the registration model to use for the first step (should be in the model folder)
 # This model should ideally be more specific to affine registration (the model has learned to deal with regularized deformation fields)
@@ -84,7 +84,7 @@ source $CONDA_BASE/etc/profile.d/conda.sh
 conda activate smenv
 # ---- First & Second registration steps ---- #
 # Perform processing and registration
-python $PATH_SCRIPT/bids_two_steps_registration.py --model1-path $PATH_SCRIPT/model/$AFFINE_REGISTRATION_MODEL --model2-path $PATH_SCRIPT/model/$DEFORMABLE_REGISTRATION_MODEL --fx-img-path $file_t1_before_proc --mov-img-path $file_t2_before_proc --fx-img-contrast T1w --one-cpu-tf True
+python $PATH_SCRIPT/bids_two_steps_registration.py --model1-path $PATH_SCRIPT/model/$AFFINE_REGISTRATION_MODEL --model2-path $PATH_SCRIPT/model/$DEFORMABLE_REGISTRATION_MODEL --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path $file_t1_before_proc --mov-img-path $file_t2_before_proc --fx-img-contrast T1w --one-cpu-tf False
 conda deactivate
 
 file_t1="${SES}_T1w_proc"

@@ -6,6 +6,7 @@ It includes a preprocessing step to scale the volumes and set it to an isotropic
 import os
 import argparse
 
+import json
 import numpy as np
 import nibabel as nib
 import voxelmorph as vxm
@@ -383,6 +384,8 @@ if __name__ == "__main__":
 
     # parameters to be specified by the user
     parser.add_argument('--model-path', required=True, type=str, help='path to the registration model')
+    parser.add_argument('--config-path', required=True, type=str,
+                        help='path to the config file with the inference model specificities')
 
     parser.add_argument('--fx-img-path', required=True, help='path to the fixed image')
     parser.add_argument('--mov-img-path', required=True, help='path to the moving image')
@@ -396,22 +399,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # ***************************************************************************************
-    # TODO - Add a config file where the parameters are specified
-    # import json
-    # with open(args.config_path) as config_file:
-    #     model_inference_specs = json.load(config_file)
+    with open(args.config_path) as config_file:
+        model_inference_specs = json.load(config_file)
 
-    model_inference_specs = dict(
-        use_subvol=True,
-        subvol_size=[160, 160, 192],
-        min_perc_overlap=0.1,
-        int_steps=5,
-        int_res=2,
-        svf_res=2,
-        enc=[256, 256, 256, 256],
-        dec=[256, 256, 256, 256, 256, 256]
-    )
-    # ***************************************************************************************
-
-    run_main(model_inference_specs, args.model_path, args.fx_img_path, args.mov_img_path, args.res_dir, args.out_img_name, args.def_field_name)
+    run_main(model_inference_specs, args.model_path, args.fx_img_path,
+             args.mov_img_path, args.res_dir, args.out_img_name, args.def_field_name)

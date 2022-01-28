@@ -11,6 +11,7 @@ The contrast of the fixed image can be specified as argument for the files namin
 import os
 import argparse
 
+import json
 import numpy as np
 import tensorflow as tf
 import nibabel as nib
@@ -395,6 +396,8 @@ if __name__ == "__main__":
 
     # parameters to be specified by the user
     parser.add_argument('--model-path', required=True, type=str, help='path to the registration model')
+    parser.add_argument('--config-path', required=True, type=str,
+                        help='path to the config file with the inference model specificities')
 
     parser.add_argument('--fx-img-path', required=True, help='path to the fixed image')
     parser.add_argument('--mov-img-path', required=True, help='path to the moving image')
@@ -408,23 +411,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # ***************************************************************************************
-    # TODO - Add a config file where the parameters are specified
-    # import json
-    # with open(args.config_path) as config_file:
-    #     model_inference_specs = json.load(config_file)
-
-    model_inference_specs = dict(
-        use_subvol=True,
-        subvol_size=[160, 160, 192],
-        min_perc_overlap=0.1,
-        int_steps=5,
-        int_res=2,
-        svf_res=2,
-        enc=[256, 256, 256, 256],
-        dec=[256, 256, 256, 256, 256, 256]
-    )
-    # ***************************************************************************************
+    with open(args.config_path) as config_file:
+        model_inference_specs = json.load(config_file)
 
     if eval(args.one_cpu_tf):
         # set that TF can use only one CPU

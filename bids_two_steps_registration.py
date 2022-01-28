@@ -11,6 +11,7 @@ The contrast of the fixed image can be specified as argument for the files namin
 import os
 import argparse
 
+import json
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras.backend as K
@@ -465,6 +466,9 @@ if __name__ == "__main__":
     parser.add_argument('--model2-path', required=True, type=str,
                         help='path to the registration model (for deformable registration)')
 
+    parser.add_argument('--config-path', required=True, type=str,
+                        help='path to the config file with the inference models specificities')
+
     parser.add_argument('--fx-img-path', required=True, help='path to the fixed image')
     parser.add_argument('--mov-img-path', required=True, help='path to the moving image')
 
@@ -477,27 +481,13 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # ***************************************************************************************
-    # TODO - Add a config file where the parameters are specified
-    # import json
-    # with open(args.config_path) as config_file:
-    #     model_inference_specs = json.load(config_file)
-
-    model_inference_specs = dict(
-        use_subvol=True,
-        subvol_size=[160, 160, 192],
-        min_perc_overlap=0.1,
-        int_steps=5,
-        int_res=2,
-        svf_res=2,
-        enc=[256, 256, 256, 256],
-        dec=[256, 256, 256, 256, 256, 256]
-    )
-    # ***************************************************************************************
+    with open(args.config_path) as config_file:
+        model_inference_specs = json.load(config_file)
 
     if eval(args.one_cpu_tf):
         # set that TF can use only one CPU
         session_conf = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
         sess = tf.compat.v1.Session(config=session_conf)
 
-    run_main(model_inference_specs, args.model1_path, args.model2_path, args.fx_img_path, args.mov_img_path, args.fx_img_contrast)
+    run_main(model_inference_specs, args.model1_path, args.model2_path, 
+             args.fx_img_path, args.mov_img_path, args.fx_img_contrast)
