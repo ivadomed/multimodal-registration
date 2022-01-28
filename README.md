@@ -4,7 +4,7 @@ Repository for training and using a contrast agnostic registration model based o
 
 ## Description
 
-This repository contains a file `train_synthmorph.py` allowing to easily use the SynthMorph method to train a contrast-invariant registration model from a config file (.json). Some additional files are provided to perform registration starting from volumes of any size (pre-processing step included in the registration file) and to be able to generate unregistered volumes by applying a deformation field synthesized from noise distribution.
+This repository contains a file `train_synthmorph.py` allowing to easily use the SynthMorph method to train a contrast-invariant registration model from a config file (.json). Some additional files are provided to perform registration starting from volumes of any size (pre-processing steps included in the registration file) and to be able to generate unregistered volumes by applying a deformation field synthesized from noise distribution.
 
 In addition, different pipelines (.sh shell script) are provided: `pipeline_bids_register_evaluate.sh`, `pipeline_bids_register_evaluate_opt_affine.sh`, ...
 These pipelines offer a framework for T2w volume registration to T1w volume for each subject of any dataset following the Brain Imaging Data Structure ([BIDS](https://bids.neuroimaging.io/)) convention. Evaluation tools are included in the pipeline (using different features from the Spinal Cord Toolbox ([SCT](https://spinalcordtoolbox.com/)) to assess the registration results, focusing on the spinal cord.
@@ -60,11 +60,11 @@ python train_synthmorph.py --config-path config/config.json
 
 ## Volumes registration
 
-The file `3d_reg.py` allows you to load a trained registration model and register two images together. It includes a preprocessing step to transform the volumes to the dimensions required by the model.
+The file `3d_reg.py` allows you to load a trained registration model and register two images together. It includes a preprocessing step to scale the volumes and set them to an isotropic resolution of 1 mm so they can be used by the model. Some parameters of the registration model used need to be specified in a config file, where you can also choose to do the inference directly on the whole volume (better accuracy but greater computational ressources needed) or on subvolumes of the size specified with the parameter `subvol_size`.
 
 To perform volumes registration:
 ```
-python 3d_reg.py --model-path model/model.h5 --fx-img-path data/t1 --mov-img-path data/t2
+python 3d_reg.py --model-path model/model.h5 --config-path config/config_inference.json --fx-img-path data/t1.nii.gz --mov-img-path data/t2.nii.gz
 ```
 
 You can dowload pretrained SynthMorph registration models provided on the [VoxelMorph repository](https://github.com/voxelmorph/voxelmorph) by clicking on the links below:
@@ -83,7 +83,7 @@ python gen_apply_def_field.py --im-path data/t2.nii.gz
 ## Registration & Evaluation pipeline
 
 A pipeline for T2w volume registration to T1w volume for each subject of any dataset following Brain Imaging Data Structure ([BIDS](https://bids.neuroimaging.io/)) convention is provided with the shell script `pipeline_bids_register_evaluate.sh`. 
-For each subject of the dataset, the T2w volume will be registered to the T1w volume using a registration model which name should be specified in the shell script and that should be located in the `model/` folder. This first part of the pipeline leads to the creation of 3 new files for each subject: `sub-xx_T1w_proc.nii.gz`, `sub-xx_T2w_proc.nii.gz` and `sub-xx_T2w_proc_reg_to_T1w.nii.gz`. It is done with the file `bids_registration.py`.  
+For each subject of the dataset, the T2w volume will be registered to the T1w volume using a registration model which name should be specified in the shell script and that should be located in the `model/` folder and a config file for the inference parameters that needs to be in the `config/` folder. This first part of the pipeline leads to the creation of 3 new files for each subject: `sub-xx_T1w_proc.nii.gz`, `sub-xx_T2w_proc.nii.gz` and `sub-xx_T2w_proc_reg_to_T1w.nii.gz`. It is done with the file `bids_registration.py`.  
 
 In the second part of the pipeline, these 3 files are used to compute some measurements and obtain a QC report in order to have a an idea of the registration performance. One measurement, the normalized Mutual Information is computed directly on the files obtained with the registration process (first part). It is done with the file `eval_reg_with_mi.py` and results in the file `nmi.csv` that summarises the results obtained for the different comparisons done. 
 
