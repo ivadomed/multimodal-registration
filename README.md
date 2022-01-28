@@ -60,7 +60,7 @@ python train_synthmorph.py --config-path config/config.json
 
 ## Volumes registration
 
-The file `3d_reg.py` allows you to load a trained registration model and register two images together. It includes a preprocessing step to scale the volumes and set them to an isotropic resolution of 1 mm so they can be used by the model. Some parameters of the registration model used need to be specified in a config file, where you can also choose to do the inference directly on the whole volume (better accuracy but greater computational ressources needed) or on subvolumes of the size specified with the parameter `subvol_size`.
+The file `3d_reg.py` allows you to load a trained registration model and register two images together. It includes a preprocessing step to scale the volumes and set them to an isotropic resolution of 1 mm so they can be used by the model. Some parameters of the registration model used need to be specified in a config file, where you can also choose to do the inference directly on the whole volume (better accuracy but greater computational resources needed) or on subvolumes of the size specified with the parameter `subvol_size`.
 
 To perform volumes registration:
 ```
