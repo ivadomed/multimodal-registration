@@ -54,9 +54,11 @@ DEBUGGING=1
 # Choose whether to keep original naming and location of input volumes for the registered volumes. It's recommended to set the value to 1 if the dataset
 # will later be used for other tasks, such as segmentation. If the value is 1, the res folder will be removed and the
 # registered volumes will be directly present in the anat folder and with the same names as the original volumes
-KEEP_ORI_NAMING_LOC=1
+KEEP_ORI_NAMING_LOC=0
 # Choose the registration model to use (should be in the model folder)
 REGISTRATION_MODEL="registration_model.h5"
+# Choose the config file to use (should be in the config folder)
+INFERENCE_CONFIG='config_inference.json'
 
 # Go to folder where data will be copied and processed
 cd ${PATH_DATA_PROCESSED}
@@ -67,14 +69,14 @@ rsync -avzh $PATH_DATA/$SUBJECT/ ${SUBJECT}
 echo $PWD
 cd ${SUBJECT}/anat/
 
-file_t1_before_proc="${SES}_T1w"
-file_t2_before_proc="${SES}_T2w"
+file_t1_before_proc="${SES}_T1w.nii.gz"
+file_t2_before_proc="${SES}_T2w.nii.gz"
 
 CONDA_BASE=$(conda info --base)
 source $CONDA_BASE/etc/profile.d/conda.sh
 conda activate smenv
 # Perform processing and registration
-python $PATH_SCRIPT/bids_registration.py --model-path $PATH_SCRIPT/model/$REGISTRATION_MODEL --fx-img-path $file_t1_before_proc --mov-img-path $file_t2_before_proc --fx-img-contrast T1w --one-cpu-tf True
+python $PATH_SCRIPT/bids_registration.py --model-path $PATH_SCRIPT/model/$REGISTRATION_MODEL --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path $file_t1_before_proc --mov-img-path $file_t2_before_proc --fx-img-contrast T1w --one-cpu-tf False
 conda deactivate
 
 file_t1="${SES}_T1w_proc"

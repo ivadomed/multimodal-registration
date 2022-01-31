@@ -1,4 +1,4 @@
-## Parameters description
+## Training parameters description
 Description of the different parameters that can be modified/specified in the config file to use `train_synthmorph.py` in order to generate synthetic label maps, to generate synthetic grayscale images and to train a model for multimodal registration.
 
 ### Data organization parameters
@@ -54,3 +54,19 @@ Description of the different parameters that can be modified/specified in the co
 - `svf_res`: resolution (relative voxel size) of the predicted SVF (default: 2)
 - `enc`: U-net encoder filters (default: 64 64 64 64)
 - `dec`: U-net decoder filters (default: 64 64 64 64 64 64)
+
+---
+## Inference parameters description
+Description of the different parameters that can be modified/specified in the config_inference file to use `3d_reg.py` and the different shell scripts like `bids_register_evaluate.sh`. Some of these parameters need to be the same as the ones used to train the registration model, whereas the first parameters others are specific to the strategy wanted for the registratrion during inference time. You can choose between doing the inference directly on the whole volume (better accuracy but greater computational resources needed) or on subvolumes of the size specified.
+
+### Parameters independent from the trained registration model
+- `use_subvol`: boolean to decide whether to use the whole volume as input of the registration model (False) (better results, more computational resources needed) or to create subvolumes to use as input of the registration model (True) before constructing the warping field that will be applied to the whole volume (default: false)
+- `subvol_size`: the size of the subvolumes used (if `use_subvol` is true). Need to be a list of 3 elements representing the size used for each dimension (default: [80, 80, 96])
+- `min_perc_overlap`: the minimum percentage of overlap of the subvolumes (if `use_subvol` is true). Can be in percent (ex: 10) or in fraction (ex: 0.1) (default: 0.1)
+
+### Parameters that need to be similar to the ones used to train the registration model
+- `int_steps`: number of integration steps (default: 5)
+- `int_res`: resolution (relative voxel size) of the flow field during vector integration (default: 2)
+- `svf_res`: resolution (relative voxel size) of the predicted SVF (default: 2)
+- `enc`: U-net encoder filters (default: [256, 256, 256, 256])
+- `dec`: U-net decoder filters (default: [256, 256, 256, 256, 256, 256])

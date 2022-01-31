@@ -1,0 +1,10 @@
+{
+  "use_subvol": false,
+  "subvol_size": [80, 80, 96],
+  "min_perc_overlap": 0.1,
+  "int_steps": 5,
+  "int_res": 2,
+  "svf_res": 2,
+  "enc": [256, 256, 256, 256],
+  "dec": [256, 256, 256, 256, 256, 256]
+}
