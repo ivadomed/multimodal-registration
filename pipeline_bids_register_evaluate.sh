@@ -59,9 +59,6 @@ KEEP_ORI_NAMING_LOC=0
 REGISTRATION_MODEL="registration_model.h5"
 # Choose the config file to use (should be in the config folder)
 INFERENCE_CONFIG='config_inference.json'
-# Choose the interpolation used to obtain the registered volume using the warping field outputted by the registration model
-# Choose between linear or nearest (for the nearest neighbor interpolation)
-WARP_INTERPOLATION='linear'
 
 # Go to folder where data will be copied and processed
 cd ${PATH_DATA_PROCESSED}
@@ -79,7 +76,7 @@ CONDA_BASE=$(conda info --base)
 source $CONDA_BASE/etc/profile.d/conda.sh
 conda activate smenv
 # Perform processing and registration
-python $PATH_SCRIPT/bids_registration.py --model-path $PATH_SCRIPT/model/$REGISTRATION_MODEL --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path $file_t1_before_proc --mov-img-path $file_t2_before_proc --warp-interp $WARP_INTERPOLATION --fx-img-contrast T1w --one-cpu-tf False
+python $PATH_SCRIPT/bids_registration.py --model-path $PATH_SCRIPT/model/$REGISTRATION_MODEL --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path $file_t1_before_proc --mov-img-path $file_t2_before_proc --fx-img-contrast T1w --one-cpu-tf False
 conda deactivate
 
 file_t1="${SES}_T1w_proc"

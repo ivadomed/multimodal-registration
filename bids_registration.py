@@ -264,12 +264,13 @@ def get_def_field_from_subvol(model_in_shape, im_shape, lst_coords_subvol, lst_w
     return warp_field
 
 
-def register(model_inference_specs, reg_model, fx_im_path, mov_im_path, warp_interp='linear', fx_contrast='T1w'):
+def register(model_inference_specs, reg_model, fx_im_path, mov_im_path, fx_contrast='T1w'):
     """
     Preprocess the two images and register the moving image to the fixed one using the provided model.
     Save the warped image and the deformation field.
     """
 
+    warp_interp = model_inference_specs['warp_interpolation']
     if warp_interp not in ['nearest', 'linear']:
         warp_interp = 'linear'
     
@@ -394,8 +395,7 @@ def register(model_inference_specs, reg_model, fx_im_path, mov_im_path, warp_int
     nib.save(moved_in_original_space, os.path.join(f'{mov_im_path}_reg_original_dim.nii.gz'))
 
 
-def run_main(model_inference_specs, reg_model_path, fx_im_path, mov_im_path, 
-             warp_interp='linear', fx_im_contrast='T1w'):
+def run_main(model_inference_specs, reg_model_path, fx_im_path, mov_im_path, fx_im_contrast='T1w'):
     """
     Load the registration model
     Preprocess the fixed and moving images
@@ -404,7 +404,7 @@ def run_main(model_inference_specs, reg_model_path, fx_im_path, mov_im_path,
     # Load the registration model
     model = vxm.networks.VxmDense.load(reg_model_path, input_model=None)
 
-    register(model_inference_specs, model, fx_im_path, mov_im_path, warp_interp=warp_interp, fx_contrast=fx_im_contrast)
+    register(model_inference_specs, model, fx_im_path, mov_im_path, fx_contrast=fx_im_contrast)
 
 
 if __name__ == "__main__":
@@ -419,10 +419,6 @@ if __name__ == "__main__":
 
     parser.add_argument('--fx-img-path', required=True, help='path to the fixed image')
     parser.add_argument('--mov-img-path', required=True, help='path to the moving image')
-
-    parser.add_argument('--warp-interp', default='linear', 
-                        help='interpolation method to obtain the registered volume using the warping field outputted '
-                             'by the registration model. Choice between linear and nearest (default: linear)')
     
     parser.add_argument('--fx-img-contrast', required=False, default='T1w',
                         help='contrast of the fixed image: one of {T1w, T2w, T2star}')
@@ -441,5 +437,4 @@ if __name__ == "__main__":
         session_conf = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
         sess = tf.compat.v1.Session(config=session_conf)
 
-    run_main(model_inference_specs, args.model_path, args.fx_img_path, 
-             args.mov_img_path, args.warp_interp, args.fx_img_contrast)
+    run_main(model_inference_specs, args.model_path, args.fx_img_path, args.mov_img_path, args.fx_img_contrast)
