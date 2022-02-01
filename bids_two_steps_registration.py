@@ -309,8 +309,31 @@ def register(model_inference_specs, reg_model1, reg_model2, fx_im_path, mov_im_p
     model2.set_weights(reg_model2.get_weights())
 
     if not model_inference_specs['use_subvol']:
-        moved_first_reg, warp_first_reg = model1.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
-                                                          np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
+        # ---- First registration ---- #
+        _, warp_first_reg = model1.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
+                                            np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
+
+        is_warp_half_res = False if warp_first_reg[0, ...].shape[0] == model_in_shape[0] else True
+        if is_warp_half_res:
+            warp_affine = np.copy(fixed.affine)
+            for i in range(3):
+                warp_affine[i, i] = warp_affine[i, i] * 2
+            warp_first = nib.Nifti1Image(warp_first_reg[0, ...], warp_affine)
+            warp_first = resample_nib(warp_first, new_size=[2, 2, 2, 1], new_size_type='factor', image_dest=None,
+                                interpolation='linear', mode='constant')
+        else:
+            warp_first = nib.Nifti1Image(warp_first_reg[0, ...], fixed.affine)
+
+        moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
+                                           add_batch_axis=True, add_feat_axis=True)
+        nib.save(warp_first, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'))
+        deform_first = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'),
+                                                 add_batch_axis=True, ret_affine=True)
+        moved_first_reg = vxm.networks.Transform(moving.shape[1:-1],
+                                                 interp_method=warp_interp,
+                                                 nb_feats=moving.shape[-1]).predict([moving, deform_first[0]])
+
+        # ---- Second registration ---- #
         _, warp_second_reg = model2.predict([moved_first_reg,
                                              np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
 
@@ -333,8 +356,6 @@ def register(model_inference_specs, reg_model1, reg_model2, fx_im_path, mov_im_p
                                               target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
         nib.save(warp_in_original_space, os.path.join(f'{mov_im_path}_warp_original_dim.nii.gz'))
 
-        moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
-                                           add_batch_axis=True, add_feat_axis=True)
         deform = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'),
                                            add_batch_axis=True, ret_affine=True)
 
@@ -355,8 +376,8 @@ def register(model_inference_specs, reg_model1, reg_model2, fx_im_path, mov_im_p
 
         is_warp_half_res = False if warp_field_lst[0].shape[0] == model_in_shape[0] else True
 
+        model_in_shape_first_reg = np.array(model_in_shape)
         if is_warp_half_res:
-            model_in_shape_first_reg = np.array(model_in_shape)
             moving_shape = np.array(moving.shape)
             for i in range(3):
                 model_in_shape_first_reg[i] = model_in_shape_first_reg[i] // 2
@@ -389,7 +410,9 @@ def register(model_inference_specs, reg_model1, reg_model2, fx_im_path, mov_im_p
         warp_to_apply = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_first_proc_field_to_{fx_contrast}.nii.gz'),
                                                   add_batch_axis=True, ret_affine=True)
 
-        first_moved = vxm.networks.Transform(moving.shape[1:-1], nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
+        first_moved = vxm.networks.Transform(moving.shape[1:-1],
+                                             interp_method=warp_interp,
+                                             nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
         first_moved_data = first_moved.squeeze()
         first_moved_nii = nib.Nifti1Image(first_moved_data, fixed.affine)
 
@@ -407,8 +430,8 @@ def register(model_inference_specs, reg_model1, reg_model2, fx_im_path, mov_im_p
 
         is_warp_half_res = False if warp_field_lst[0].shape[0] == model_in_shape[0] else True
 
+        model_in_shape_second_reg = np.array(model_in_shape)
         if is_warp_half_res:
-            model_in_shape_second_reg = np.array(model_in_shape)
             moving_shape = np.array(moving.shape)
             for i in range(3):
                 model_in_shape_second_reg[i] = model_in_shape_second_reg[i] // 2
