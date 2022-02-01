@@ -94,7 +94,7 @@ file_t2_reg_seg="${SES}_T2w_proc_reg_to_T1w_seg"
 
 conda activate smenv
 # Compute Dice score of SC segmentation overlap before and after registration and save the results in a csv file
-python $PATH_SCRIPT/eval_reg_on_sc_seg.py --fx-seg-path $file_t1_seg --moving-seg-path $file_t2_seg --warped-seg-path $file_t2_reg_seg --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/dice_score.csv --append 1
+python $PATH_SCRIPT/eval_reg_on_sc_seg.py --fx-seg-path $file_t1_seg --moving-seg-path $file_t2_seg --warped-seg-path $file_t2_reg_seg --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/metrics_on_sc_seg.csv --append 1
 # Compute the normalized Mutual Information and save the results in a csv file
 python $PATH_SCRIPT/eval_reg_with_mi.py --fx-im-path $file_t1_seg --moving-im-path $file_t2_seg --warped-im-path $file_t2_reg_seg --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/nmi.csv --append 1
 conda deactivate

@@ -101,11 +101,11 @@ For each subject of the dataset, the T2w volume will be registered to the T1w vo
 In the second part of the pipeline, these 3 files are used to compute some measurements and obtain a QC report in order to have a an idea of the registration performance. One measurement, the normalized Mutual Information is computed directly on the files obtained with the registration process (first part). It is done with the file `eval_reg_with_mi.py` and results in the file `nmi.csv` that summarises the results obtained for the different comparisons done. 
 
 The second measurement is representative of the spinal cord overlap. To compute this value, the segmentation of the spinal cord should be obtained. This is done with the [`sct_deepseg_sc` feature](https://spinalcordtoolbox.com/user_section/command-line.html#sct-deepseg-sc) of the Spinal Cord Toolbox ([SCT](https://spinalcordtoolbox.com/)) software.  
-The spinal cord segmentations are saved and used to compute the volume overlap (Dice score) with the file `eval_reg_on_sc_seg.py`. The results are saved in the file `dice_score.csv` that summarises the results obtained for the different comparisons done.  
+The spinal cord segmentations are saved and used to compute the volume overlap (Dice score), and other metrics like the Jaccard index or sensitivity, with the file `eval_reg_on_sc_seg.py`. The results are saved in the file `metrics_on_sc_seg.csv` that summarises the results obtained for the different comparisons done.  
 
 Additionally, a Quality Control (QC) report is generated using [`sct_qc`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-qc) from SCT allowing to control the spinal cord segmentations as well as the spinal cord registration. This report takes the form of a `.html` file and can be found at `qc/index.html` in your result folder.
 
-<img width="900" alt="Capture d’écran 2021-12-03 à 17 30 01" src="https://user-images.githubusercontent.com/32447627/144681407-635ad819-be82-41de-acee-b573ab31aba5.png">
+<img width="1000" alt="Capture d’écran 2022-01-31 à 10 26 49" src="https://user-images.githubusercontent.com/32447627/151821798-d2f32611-0542-4c0c-9c38-eef2550a077b.png">
 
 The files obtained during the process (segmentation, processed volumes or deformation fields) are organised into different folders. Two parameters at the beginning of the shell script are monitoring the organisation of the output files in the `anat` folder:
 - `DEBUGGING` 
@@ -131,7 +131,7 @@ The addition of affine registration in the pipeline is thus optional and can be 
 
 The affine registration step is done with [`sct_register_multimodal`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-register-multimodal) from the [Spinal Cord Toolbox](https://spinalcordtoolbox.com/index.html) and using the centermass algorithm, which is a slice wise center of mass alignment done on the spinal cord segmentations (computed on the original input volumes).
 
-<img width="1020" alt="Capture d’écran 2021-12-22 à 16 53 15" src="https://user-images.githubusercontent.com/32447627/147159446-208a8b3a-04b6-4143-83fc-8a41464e960e.png">
+<img width="1000" alt="Capture d’écran 2022-01-31 à 10 27 05" src="https://user-images.githubusercontent.com/32447627/151821937-42746787-8b40-400f-8c84-5a4d1ff064f4.png">
 
 **To run the shell script**, [`sct_run_batch`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-run-batch) from SCT is used.  
 In the project directory, if your BIDS dataset is in the same directory in the `bids_dataset` folder, you can execute the following command to run the registration and evaluation pipeline:
@@ -148,7 +148,7 @@ The first model aims to ensure that the two volumes to register are well aligned
 This approach worked well to register data that have been randomly affine transformed (translation, scaling and rotation) which is not necessarily the case when using a single registration model.  
 To use this approach, you need two registration models and specify them in the `pipeline_bids_register_evaluate_two_steps.sh` file. 
 
-<img width="1035" alt="Capture d’écran 2022-01-04 à 16 21 10" src="https://user-images.githubusercontent.com/32447627/148125445-a8b96f20-8e3a-4f1e-87d4-032d647c3e1b.png">
+<img width="1000" alt="Capture d’écran 2022-01-31 à 10 27 25" src="https://user-images.githubusercontent.com/32447627/151821991-4650fb1e-6394-4fd8-b131-c551845f65a9.png">
 
 **To run the shell script**, [`sct_run_batch`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-run-batch) from SCT is used.  
 In the project directory, if your BIDS dataset is in the same directory in the `bids_dataset` folder, you can execute the following command to run the registration and evaluation pipeline:
