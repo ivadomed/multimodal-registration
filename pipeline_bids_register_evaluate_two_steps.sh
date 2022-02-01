@@ -65,6 +65,11 @@ AFFINE_REGISTRATION_MODEL="affine_registration_model.h5"
 # This model should ideally be more specific to deformable registration (the model can adjust for small variations anywhere)
 # The registered volume resulting from the AFFINE_REGISTRATION_MODEL is used as input for this registration model
 DEFORMABLE_REGISTRATION_MODEL="deformable_registration_model.h5"
+# Choose the config file to use (should be in the config folder)
+INFERENCE_CONFIG='config_inference.json'
+# Choose the interpolation used to obtain the registered volume using the warping field outputted by the registration model
+# Choose between linear or nearest (for the nearest neighbor interpolation)
+WARP_INTERPOLATION='linear'
 
 # Go to folder where data will be copied and processed
 cd ${PATH_DATA_PROCESSED}
@@ -84,7 +89,7 @@ source $CONDA_BASE/etc/profile.d/conda.sh
 conda activate smenv
 # ---- First & Second registration steps ---- #
 # Perform processing and registration
-python $PATH_SCRIPT/bids_two_steps_registration.py --model1-path $PATH_SCRIPT/model/$AFFINE_REGISTRATION_MODEL --model2-path $PATH_SCRIPT/model/$DEFORMABLE_REGISTRATION_MODEL --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path $file_t1_before_proc --mov-img-path $file_t2_before_proc --fx-img-contrast T1w --one-cpu-tf False
+python $PATH_SCRIPT/bids_two_steps_registration.py --model1-path $PATH_SCRIPT/model/$AFFINE_REGISTRATION_MODEL --model2-path $PATH_SCRIPT/model/$DEFORMABLE_REGISTRATION_MODEL --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path $file_t1_before_proc --mov-img-path $file_t2_before_proc --warp-interp $WARP_INTERPOLATION --fx-img-contrast T1w --one-cpu-tf False
 conda deactivate
 
 file_t1="${SES}_T1w_proc"

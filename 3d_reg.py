@@ -259,12 +259,15 @@ def get_def_field_from_subvol(model_in_shape, im_shape, lst_coords_subvol, lst_w
 
 
 def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir='res',
-             out_im_path='warped_im', out_field_path='deform_field'):
+             warp_interp='linear', out_im_path='warped_im', out_field_path='deform_field'):
     """
     Load a registration model, preprocess the two images and register the moving image to the fixed one.
     Save the warped image and the deformation field in the paths specified.
     """
 
+    if warp_interp not in ['nearest', 'linear']:
+        warp_interp = 'linear'
+    
     model = vxm.networks.VxmDense.load(model_path, input_model=None)
     reg_model = model
 
@@ -327,7 +330,7 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
         os.remove(os.path.join(f'{mov_im_path}_proc_field.nii.gz'))
 
         moved = vxm.networks.Transform(moving.shape[1:-1],
-                                       interp_method='linear',
+                                       interp_method=warp_interp,
                                        nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
 
     else:
@@ -382,7 +385,7 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
         os.remove(os.path.join(f'{mov_im_path}_proc_field.nii.gz'))
 
         moved = vxm.networks.Transform(moving.shape[1:-1],
-                                       interp_method='linear',
+                                       interp_method=warp_interp,
                                        nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
 
     moved_data = moved.squeeze()
@@ -408,6 +411,10 @@ if __name__ == "__main__":
 
     parser.add_argument('--res-dir', required=False, default='res', help='results output directory (default: res)')
 
+    parser.add_argument('--warp-interp', default='linear',
+                        help='interpolation method to obtain the registered volume using the warping field outputted '
+                             'by the registration model. Choice between linear and nearest (default: linear)')
+    
     parser.add_argument('--out-img-name', required=False, default='warped_im',
                         help='name of the warped image that will result')
     parser.add_argument('--def-field-name', required=False, default='deform_field',
@@ -418,5 +425,5 @@ if __name__ == "__main__":
     with open(args.config_path) as config_file:
         model_inference_specs = json.load(config_file)
 
-    run_main(model_inference_specs, args.model_path, args.fx_img_path,
-             args.mov_img_path, args.res_dir, args.out_img_name, args.def_field_name)
+    run_main(model_inference_specs, args.model_path, args.fx_img_path, args.mov_img_path, 
+             args.res_dir, args.warp_interp, args.out_img_name, args.def_field_name)
