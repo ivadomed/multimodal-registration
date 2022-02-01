@@ -297,8 +297,8 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
     model.set_weights(reg_model.get_weights())
 
     if not model_inference_specs['use_subvol']:
-        moved, warp = model.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
-                                     np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
+        _, warp = model.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
+                                 np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
         warp_data = warp[0, ...]
 
         is_warp_half_res = False if warp_data.shape[0] == model_in_shape[0] else True
@@ -312,9 +312,23 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
         else:
             warp = nib.Nifti1Image(warp_data, fixed.affine)
 
+        nib.save(warp, os.path.join(f'{mov_im_path}_proc_field.nii.gz'))
         warp_in_original_space = resample_img(warp, target_affine=moving_nii.affine,
                                               target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
         nib.save(warp_in_original_space, warp_path)
+
+        nib.save(moving, os.path.join(f'{mov_im_path}_proc.nii.gz'))
+        moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
+                                           add_batch_axis=True, add_feat_axis=True)
+        warp_to_apply = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field.nii.gz'),
+                                                  add_batch_axis=True, ret_affine=True)
+
+        os.remove(os.path.join(f'{mov_im_path}_proc.nii.gz'))
+        os.remove(os.path.join(f'{mov_im_path}_proc_field.nii.gz'))
+
+        moved = vxm.networks.Transform(moving.shape[1:-1],
+                                       interp_method='linear',
+                                       nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
 
     else:
         
@@ -367,7 +381,9 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
         os.remove(os.path.join(f'{mov_im_path}_proc.nii.gz'))
         os.remove(os.path.join(f'{mov_im_path}_proc_field.nii.gz'))
 
-        moved = vxm.networks.Transform(moving.shape[1:-1], nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
+        moved = vxm.networks.Transform(moving.shape[1:-1],
+                                       interp_method='linear',
+                                       nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
 
     moved_data = moved.squeeze()
     moved_nii = nib.Nifti1Image(moved_data, fixed.affine)

@@ -301,7 +301,7 @@ def register(model_inference_specs, reg_model, fx_im_path, mov_im_path, fx_contr
     model.set_weights(reg_model.get_weights())
 
     if not model_inference_specs['use_subvol']:
-        moved, warp = model.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
+        _, warp = model.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
                                      np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
         warp_data = warp[0, ...]
         
@@ -316,12 +316,21 @@ def register(model_inference_specs, reg_model, fx_im_path, mov_im_path, fx_contr
         else:
             warp = nib.Nifti1Image(warp_data, fixed.affine)
             
-        moved_nii = nib.Nifti1Image(moved[0, ..., 0], fixed.affine)
-        nib.save(moved_nii, os.path.join(f'{mov_im_path}_proc_reg_to_{fx_contrast}.nii.gz'))
         nib.save(warp, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
         warp_in_original_space = resample_img(warp, target_affine=moving_nii.affine,
                                               target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
         nib.save(warp_in_original_space, os.path.join(f'{mov_im_path}_warp_original_dim.nii.gz'))
+
+        moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
+                                           add_batch_axis=True, add_feat_axis=True)
+        deform = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'),
+                                           add_batch_axis=True, ret_affine=True)
+
+        moved = vxm.networks.Transform(moving.shape[1:-1],
+                                       interp_method='linear',
+                                       nb_feats=moving.shape[-1]).predict([moving, deform[0]])
+        vxm.py.utils.save_volfile(moved.squeeze(), os.path.join(f'{mov_im_path}_proc_reg_to_{fx_contrast}.nii.gz'),
+                                  fixed.affine)
         
     else:
 
@@ -369,7 +378,9 @@ def register(model_inference_specs, reg_model, fx_im_path, mov_im_path, fx_contr
         warp_to_apply = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'),
                                                   add_batch_axis=True, ret_affine=True)
 
-        moved = vxm.networks.Transform(moving.shape[1:-1], nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
+        moved = vxm.networks.Transform(moving.shape[1:-1],
+                                       interp_method='linear',
+                                       nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
         # save moved image
         vxm.py.utils.save_volfile(moved.squeeze(), os.path.join(f'{mov_im_path}_proc_reg_to_{fx_contrast}.nii.gz'), fixed.affine)
 

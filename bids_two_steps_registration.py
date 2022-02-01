@@ -307,8 +307,8 @@ def register(model_inference_specs, reg_model1, reg_model2, fx_im_path, mov_im_p
     if not model_inference_specs['use_subvol']:
         moved_first_reg, warp_first_reg = model1.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
                                                           np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
-        moved, warp_second_reg = model2.predict([moved_first_reg,
-                                                 np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
+        _, warp_second_reg = model2.predict([moved_first_reg,
+                                             np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
 
         warp = vxm.utils.compose([K.constant(warp_first_reg[0, ...]), K.constant(warp_second_reg[0, ...])])
         warp_data = K.eval(warp)
