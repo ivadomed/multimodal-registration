@@ -129,6 +129,12 @@ def preprocess(model_inference_specs, im_nii, mov_im_nii):
     list of subvolumes for the fixed image, list of subvolumes for moving image and the coordinates of the subvolumes.
     """
 
+    resample_interp = model_inference_specs['resample_interpolation']
+    if resample_interp not in ['nearest', 'linear', 'spline']:
+        resample_interp = 'nearest'
+    if resample_interp == 'nearest':
+        resample_interp = 'nn'
+    
     # Scale the data between 0 and 1
     fx_img = im_nii.get_fdata()
     scaled_fx_img = (fx_img - np.min(fx_img)) / (np.max(fx_img) - np.min(fx_img))
@@ -138,10 +144,10 @@ def preprocess(model_inference_specs, im_nii, mov_im_nii):
 
     # Change the resolution to isotropic 1 mm resolution
     fx_resampled_nii = resample_nib(nib.Nifti1Image(scaled_fx_img, im_nii.affine), new_size=[1, 1, 1],
-                                    new_size_type='mm', image_dest=None, interpolation='linear', mode='constant')
+                                    new_size_type='mm', image_dest=None, interpolation=resample_interp, mode='constant')
     fx_img_res111 = fx_resampled_nii.get_fdata()
     mov_resampled_nii = resample_nib(nib.Nifti1Image(scaled_mov_img, mov_im_nii.affine),
-                                     image_dest=fx_resampled_nii, interpolation='linear', mode='constant')
+                                     image_dest=fx_resampled_nii, interpolation=resample_interp, mode='constant')
     mov_img_res111 = mov_resampled_nii.get_fdata()
 
     # Ensure that the volumes can be used in the registration model

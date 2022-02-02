@@ -116,7 +116,7 @@ def resample_nib(image, new_size=None, new_size_type=None, image_dest=None, inte
     return img_r
 
 
-def preprocess(model_inference_specs, im_nii, mov_im_nii):
+def preprocess(model_inference_specs, im_nii, mov_im_nii, resample_interp='nn'):
     """
     Scale volumes and create subvolumes of the correct shape.
     Return the preprocessed volumes (scaling, zero-padding, isotropic resolution of 1mm) as well as the
@@ -132,10 +132,10 @@ def preprocess(model_inference_specs, im_nii, mov_im_nii):
 
     # Change the resolution to isotropic 1 mm resolution
     fx_resampled_nii = resample_nib(nib.Nifti1Image(scaled_fx_img, im_nii.affine), new_size=[1, 1, 1],
-                                    new_size_type='mm', image_dest=None, interpolation='linear', mode='constant')
+                                    new_size_type='mm', image_dest=None, interpolation=resample_interp, mode='constant')
     fx_img_res111 = fx_resampled_nii.get_fdata()
     mov_resampled_nii = resample_nib(nib.Nifti1Image(scaled_mov_img, mov_im_nii.affine),
-                                     image_dest=fx_resampled_nii, interpolation='linear', mode='constant')
+                                     image_dest=fx_resampled_nii, interpolation=resample_interp, mode='constant')
     mov_img_res111 = mov_resampled_nii.get_fdata()
 
     # Ensure that the volumes can be used in the registration model
@@ -259,7 +259,7 @@ def get_def_field_from_subvol(model_in_shape, im_shape, lst_coords_subvol, lst_w
 
 
 def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir='res',
-             warp_interp='linear', out_im_path='warped_im', out_field_path='deform_field'):
+             warp_interp='linear', resample_interp='nearest', out_im_path='warped_im', out_field_path='deform_field'):
     """
     Load a registration model, preprocess the two images and register the moving image to the fixed one.
     Save the warped image and the deformation field in the paths specified.
@@ -267,6 +267,11 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
 
     if warp_interp not in ['nearest', 'linear']:
         warp_interp = 'linear'
+        
+    if resample_interp not in ['nearest', 'linear', 'spline']:
+        resample_interp = 'nearest'
+    if resample_interp == 'nearest':
+        resample_interp = 'nn'
     
     model = vxm.networks.VxmDense.load(model_path, input_model=None)
     reg_model = model
@@ -279,7 +284,7 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
     moving_nii = nib.load(mov_im_path)
 
     fixed, moving, lst_subvol_fx, lst_subvol_mov, lst_coords_subvol = \
-        preprocess(model_inference_specs, fixed_nii, moving_nii)
+        preprocess(model_inference_specs, fixed_nii, moving_nii, resample_interp)
 
     if model_inference_specs['use_subvol']:
         model_in_shape = (int(np.ceil(model_inference_specs['subvol_size'][0] // 16)) * 16,
@@ -414,6 +419,9 @@ if __name__ == "__main__":
     parser.add_argument('--warp-interp', default='linear',
                         help='interpolation method to obtain the registered volume using the warping field outputted '
                              'by the registration model. Choice between linear and nearest (default: linear)')
+    parser.add_argument('--resample-interp', default='nearest',
+                        help='interpolation method used to resample the volumes to a 1 mm isotropic resolution. '
+                             'Choice between linear, spline and nearest (default: nearest)')
     
     parser.add_argument('--out-img-name', required=False, default='warped_im',
                         help='name of the warped image that will result')
@@ -426,4 +434,4 @@ if __name__ == "__main__":
         model_inference_specs = json.load(config_file)
 
     run_main(model_inference_specs, args.model_path, args.fx_img_path, args.mov_img_path, 
-             args.res_dir, args.warp_interp, args.out_img_name, args.def_field_name)
+             args.res_dir, args.warp_interp, args.resample_interp, args.out_img_name, args.def_field_name)
