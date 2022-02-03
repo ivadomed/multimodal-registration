@@ -409,7 +409,6 @@ def register(model_inference_specs, reg_model1, reg_model2, fx_im_path, mov_im_p
             nib.save(def_field_nii, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
             deform = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'),
                                                      add_batch_axis=True, ret_affine=True)
-            os.remove(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'))
             moved = vxm.networks.Transform(moving.shape[1:-1], interp_method=warp_interp, rescale=scale,
                                            nb_feats=moving.shape[-1]).predict([moving, deform[0]])
 
