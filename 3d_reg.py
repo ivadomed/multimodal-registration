@@ -259,7 +259,7 @@ def get_def_field_from_subvol(model_in_shape, im_shape, lst_coords_subvol, lst_w
 
 
 def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir='res',
-             warp_interp='linear', resample_interp='nearest', out_im_path='warped_im', out_field_path='deform_field'):
+             warp_interp='linear', resample_interp='linear', out_im_path='warped_im', out_field_path='deform_field'):
     """
     Load a registration model, preprocess the two images and register the moving image to the fixed one.
     Save the warped image and the deformation field in the paths specified.
@@ -269,7 +269,7 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
         warp_interp = 'linear'
         
     if resample_interp not in ['nearest', 'linear', 'spline']:
-        resample_interp = 'nearest'
+        resample_interp = 'linear'
     if resample_interp == 'nearest':
         resample_interp = 'nn'
     
@@ -412,9 +412,9 @@ if __name__ == "__main__":
     parser.add_argument('--warp-interp', default='linear',
                         help='interpolation method to obtain the registered volume using the warping field outputted '
                              'by the registration model. Choice between linear and nearest (default: linear)')
-    parser.add_argument('--resample-interp', default='nearest',
+    parser.add_argument('--resample-interp', default='linear',
                         help='interpolation method used to resample the volumes to a 1 mm isotropic resolution. '
-                             'Choice between linear, spline and nearest (default: nearest)')
+                             'Choice between linear, spline and nearest (default: linear)')
     
     parser.add_argument('--out-img-name', required=False, default='warped_im',
                         help='name of the warped image that will result')

@@ -131,7 +131,7 @@ def preprocess(model_inference_specs, im_nii, mov_im_nii):
 
     resample_interp = model_inference_specs['resample_interpolation']
     if resample_interp not in ['nearest', 'linear', 'spline']:
-        resample_interp = 'nearest'
+        resample_interp = 'linear'
     if resample_interp == 'nearest':
         resample_interp = 'nn'
     

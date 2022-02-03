@@ -8,5 +8,5 @@
   "enc": [256, 256, 256, 256],
   "dec": [256, 256, 256, 256, 256, 256],
   "warp_interpolation": "linear",
-  "resample_interpolation": "nearest"
+  "resample_interpolation": "linear"
 }
