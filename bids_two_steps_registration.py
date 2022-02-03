@@ -315,172 +315,206 @@ def register(model_inference_specs, reg_model1, reg_model2, fx_im_path, mov_im_p
     model2.set_weights(reg_model2.get_weights())
 
     if not model_inference_specs['use_subvol']:
-        # ---- First registration ---- #
-        _, warp_first_reg = model1.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
-                                            np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
-
-        is_warp_half_res = False if warp_first_reg[0, ...].shape[0] == model_in_shape[0] else True
-        if is_warp_half_res:
+        if warp_interp == 'linear':
+            moved_first_reg, warp_first_reg = model1.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
+                                                np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
+            moved, warp_second_reg = model2.predict([np.expand_dims(moved_first_reg.squeeze(), axis=(0, -1)),
+                                                     np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
+            warp = vxm.utils.compose([K.constant(warp_first_reg[0, ...]), K.constant(warp_second_reg[0, ...])])
+            warp_data = K.eval(warp)
             warp_affine = np.copy(fixed.affine)
-            for i in range(3):
-                warp_affine[i, i] = warp_affine[i, i] * 2
-            warp_first = nib.Nifti1Image(warp_first_reg[0, ...], warp_affine)
-            warp_first = resample_nib(warp_first, new_size=[2, 2, 2, 1], new_size_type='factor', image_dest=None,
-                                interpolation='linear', mode='constant')
-        else:
-            warp_first = nib.Nifti1Image(warp_first_reg[0, ...], fixed.affine)
-
-        moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
-                                           add_batch_axis=True, add_feat_axis=True)
-        nib.save(warp_first, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'))
-        deform_first = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'),
-                                                 add_batch_axis=True, ret_affine=True)
-        moved_first_reg = vxm.networks.Transform(moving.shape[1:-1],
-                                                 interp_method=warp_interp,
-                                                 nb_feats=moving.shape[-1]).predict([moving, deform_first[0]])
-
-        # ---- Second registration ---- #
-        _, warp_second_reg = model2.predict([moved_first_reg,
-                                             np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
-
-        warp = vxm.utils.compose([K.constant(warp_first_reg[0, ...]), K.constant(warp_second_reg[0, ...])])
-        warp_data = K.eval(warp)
-
-        is_warp_half_res = False if warp_data.shape[0] == model_in_shape[0] else True
-        if is_warp_half_res:
-            warp_affine = np.copy(fixed.affine)
-            for i in range(3):
-                warp_affine[i, i] = warp_affine[i, i] * 2
             warp = nib.Nifti1Image(warp_data, warp_affine)
-            warp = resample_nib(warp, new_size=[2, 2, 2, 1], new_size_type='factor', image_dest=None,
-                                interpolation='linear', mode='constant')
+            nib.save(warp, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
+            warp_in_original_space = resample_img(warp, target_affine=moving_nii.affine,
+                                                  target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
+            nib.save(warp_in_original_space, os.path.join(f'{mov_im_path}_warp_original_dim.nii.gz'))
         else:
-            warp = nib.Nifti1Image(warp_data, fixed.affine)
+            # First registration
+            moved_first_reg, warp_first_reg = model1.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
+                                                              np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
+            warp_first = nib.Nifti1Image(warp_first_reg[0, ...], fixed.affine)
+            is_warp_half_res = False if warp_first_reg[0, ...].shape[0] == model_in_shape[0] else True
+            if is_warp_half_res:
+                scale = 2
+            else:
+                scale = None
+            moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
+                                               add_batch_axis=True, add_feat_axis=True)
+            nib.save(warp_first, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'))
+            deform_first = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'),
+                                                     add_batch_axis=True, ret_affine=True)
+            os.remove(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'))
+            moved_first_reg = vxm.networks.Transform(moving.shape[1:-1],
+                                                     interp_method=warp_interp,
+                                                     rescale=scale,
+                                                     nb_feats=moving.shape[-1]).predict([moving, deform_first[0]])
+            # Second registration
+            moved, warp_second_reg = model2.predict([np.expand_dims(moved_first_reg.squeeze(), axis=(0, -1)),
+                                                     np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
+            warp_second = nib.Nifti1Image(warp_second_reg[0, ...], fixed.affine)
 
-        nib.save(warp, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
-        warp_in_original_space = resample_img(warp, target_affine=moving_nii.affine,
-                                              target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
-        nib.save(warp_in_original_space, os.path.join(f'{mov_im_path}_warp_original_dim.nii.gz'))
+            nib.save(warp_second, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'))
+            os.remove(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'))
+            warp = vxm.utils.compose([K.constant(warp_first_reg[0, ...]), K.constant(warp_second_reg[0, ...])])
+            warp_data = K.eval(warp)
+            warp_affine = np.copy(fixed.affine)
+            warp = nib.Nifti1Image(warp_data, warp_affine)
+            nib.save(warp, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
+            warp_in_original_space = resample_img(warp, target_affine=moving_nii.affine,
+                                                  target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
+            nib.save(warp_in_original_space, os.path.join(f'{mov_im_path}_warp_original_dim.nii.gz'))
+            deform = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'),
+                                               add_batch_axis=True, ret_affine=True)
+            moved = vxm.networks.Transform(moving.shape[1:-1], interp_method=warp_interp, rescale=2,
+                                           nb_feats=moving.shape[-1]).predict([moving, deform[0]])
 
-        deform = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'),
-                                           add_batch_axis=True, ret_affine=True)
-
-        moved = vxm.networks.Transform(moving.shape[1:-1],
-                                       interp_method=warp_interp,
-                                       nb_feats=moving.shape[-1]).predict([moving, deform[0]])
         vxm.py.utils.save_volfile(moved.squeeze(), os.path.join(f'{mov_im_path}_proc_reg_to_{fx_contrast}.nii.gz'),
                                   fixed.affine)
         
     else:
         
-        # ---- First registration ---- #
-        warp_field_lst = []
-        for fx_subvol, mov_subvol in zip(lst_subvol_fx, lst_subvol_mov):
-            _, warp_first_reg = model1.predict([np.expand_dims(mov_subvol.squeeze(), axis=(0, -1)),
-                                                np.expand_dims(fx_subvol.squeeze(), axis=(0, -1))])
-            warp_field_lst.append(warp_first_reg[0, ...])
+        if warp_interp == 'linear':
+            warp_field_lst = []
+            for fx_subvol, mov_subvol in zip(lst_subvol_fx, lst_subvol_mov):
+                moved_first_reg, warp_first_reg = model1.predict([np.expand_dims(mov_subvol.squeeze(), axis=(0, -1)),
+                                                                  np.expand_dims(fx_subvol.squeeze(), axis=(0, -1))])
+                _, warp_sec_reg = model2.predict([np.expand_dims(moved_first_reg.squeeze(), axis=(0, -1)),
+                                                  np.expand_dims(fx_subvol.squeeze(), axis=(0, -1))])
+                warp_subvol = vxm.utils.compose([K.constant(warp_first_reg[0, ...]), K.constant(warp_sec_reg[0, ...])])
+                warp_data = K.eval(warp_subvol)
+                warp_field_lst.append(warp_data)
 
-        is_warp_half_res = False if warp_field_lst[0].shape[0] == model_in_shape[0] else True
+            is_warp_half_res = False if warp_field_lst[0].shape[0] == model_in_shape[0] else True
+            model_in_shape = np.array(model_in_shape)
+            if is_warp_half_res:
+                scale = 2
+                moving_shape = np.array(moving.shape)
+                for i in range(3):
+                    model_in_shape[i] = model_in_shape[i] // 2
+                    moving_shape[i] = moving_shape[i] // 2
+                new_coords = []
+                for coord in lst_coords_subvol:
+                    x_min, x_max, y_min, y_max, z_min, z_max = coord
+                    x_min, x_max, y_min, y_max, z_min, z_max = x_min // 2, x_max // 2, y_min // 2, y_max // 2, z_min // 2, z_max // 2
+                    new_coords.append((x_min, x_max, y_min, y_max, z_min, z_max))
+                lst_coords_subvol = new_coords
+            else:
+                scale = None
+                moving_shape = moving.shape
 
-        model_in_shape_first_reg = np.array(model_in_shape)
-        if is_warp_half_res:
-            moving_shape = np.array(moving.shape)
-            for i in range(3):
-                model_in_shape_first_reg[i] = model_in_shape_first_reg[i] // 2
-                moving_shape[i] = moving_shape[i] // 2
-            new_coords = []
-            for coord in lst_coords_subvol:
-                x_min, x_max, y_min, y_max, z_min, z_max = coord
-                x_min, x_max, y_min, y_max, z_min, z_max = x_min // 2, x_max // 2, y_min // 2, y_max // 2, z_min // 2, z_max // 2
-                new_coords.append((x_min, x_max, y_min, y_max, z_min, z_max))
-            lst_coords_subvol = new_coords
+            warp_field = get_def_field_from_subvol(model_in_shape, moving_shape, lst_coords_subvol, warp_field_lst)
+            def_field_nii = nib.Nifti1Image(warp_field, affine=fixed.affine)
+            moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
+                                               add_batch_axis=True, add_feat_axis=True)
+            nib.save(def_field_nii, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
+            deform = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'),
+                                                     add_batch_axis=True, ret_affine=True)
+            os.remove(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'))
+            moved = vxm.networks.Transform(moving.shape[1:-1], interp_method=warp_interp, rescale=scale,
+                                           nb_feats=moving.shape[-1]).predict([moving, deform[0]])
+
+            vxm.py.utils.save_volfile(moved.squeeze(), os.path.join(f'{mov_im_path}_proc_reg_to_{fx_contrast}.nii.gz'),
+                                      fixed.affine)
+
         else:
-            moving_shape = moving.shape
+            # ---- First registration ---- #
+            warp_field_lst = []
+            for fx_subvol, mov_subvol in zip(lst_subvol_fx, lst_subvol_mov):
+                _, warp_first_reg = model1.predict([np.expand_dims(mov_subvol.squeeze(), axis=(0, -1)),
+                                                    np.expand_dims(fx_subvol.squeeze(), axis=(0, -1))])
+                warp_field_lst.append(warp_first_reg[0, ...])
 
-        first_warp_field = get_def_field_from_subvol(model_in_shape_first_reg, moving_shape, lst_coords_subvol, warp_field_lst)
+            is_warp_half_res = False if warp_field_lst[0].shape[0] == model_in_shape[0] else True
 
-        if is_warp_half_res:
-            warp_affine = np.copy(fixed.affine)
-            for i in range(3):
-                warp_affine[i, i] = warp_affine[i, i] * 2
-            warp = nib.Nifti1Image(first_warp_field, warp_affine)
-            def_field_nii = resample_nib(warp, new_size=[2, 2, 2, 1], new_size_type='factor', image_dest=None,
-                                         interpolation='spline', mode='constant')
-        else:
+            model_in_shape_first_reg = np.array(model_in_shape)
+            if is_warp_half_res:
+                scale = 2
+                moving_shape = np.array(moving.shape)
+                for i in range(3):
+                    model_in_shape_first_reg[i] = model_in_shape_first_reg[i] // 2
+                    moving_shape[i] = moving_shape[i] // 2
+                new_coords = []
+                for coord in lst_coords_subvol:
+                    x_min, x_max, y_min, y_max, z_min, z_max = coord
+                    x_min, x_max, y_min, y_max, z_min, z_max = x_min // 2, x_max // 2, y_min // 2, y_max // 2, z_min // 2, z_max // 2
+                    new_coords.append((x_min, x_max, y_min, y_max, z_min, z_max))
+                lst_coords_subvol = new_coords
+            else:
+                scale = None
+                moving_shape = moving.shape
+
+            first_warp_field = get_def_field_from_subvol(model_in_shape_first_reg, moving_shape, lst_coords_subvol, warp_field_lst)
+
             def_field_nii = nib.Nifti1Image(first_warp_field, affine=fixed.affine)
 
-        nib.save(def_field_nii, os.path.join(f'{mov_im_path}_first_proc_field_to_{fx_contrast}.nii.gz'))
+            nib.save(def_field_nii, os.path.join(f'{mov_im_path}_first_proc_field_to_{fx_contrast}.nii.gz'))
 
-        moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
-                                           add_batch_axis=True, add_feat_axis=True)
-        warp_to_apply = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_first_proc_field_to_{fx_contrast}.nii.gz'),
-                                                  add_batch_axis=True, ret_affine=True)
+            moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
+                                               add_batch_axis=True, add_feat_axis=True)
+            warp_to_apply = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_first_proc_field_to_{fx_contrast}.nii.gz'),
+                                                      add_batch_axis=True, ret_affine=True)
 
-        first_moved = vxm.networks.Transform(moving.shape[1:-1],
-                                             interp_method=warp_interp,
-                                             nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
-        first_moved_data = first_moved.squeeze()
-        first_moved_nii = nib.Nifti1Image(first_moved_data, fixed.affine)
+            first_moved = vxm.networks.Transform(moving.shape[1:-1],
+                                                 interp_method=warp_interp,
+                                                 rescale=scale,
+                                                 nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
+            first_moved_data = first_moved.squeeze()
+            first_moved_nii = nib.Nifti1Image(first_moved_data, fixed.affine)
 
-        # save moved image
-        vxm.py.utils.save_volfile(first_moved_data, os.path.join(f'{mov_im_path}_proc_first_reg_to_{fx_contrast}.nii.gz'), fixed.affine)
+            # save moved image
+            vxm.py.utils.save_volfile(first_moved_data, os.path.join(f'{mov_im_path}_proc_first_reg_to_{fx_contrast}.nii.gz'), fixed.affine)
 
-        # ---- Second registration ---- #
-        fixed, moving, lst_subvol_fx, lst_subvol_mov, lst_coords_subvol = preprocess(model_inference_specs, fixed_nii, first_moved_nii)
+            # ---- Second registration ---- #
+            fixed, moving, lst_subvol_fx, lst_subvol_mov, lst_coords_subvol = preprocess(model_inference_specs, fixed_nii, first_moved_nii)
 
-        warp_field_lst = []
-        for fx_subvol, mov_subvol in zip(lst_subvol_fx, lst_subvol_mov):
-            _, warp_second_reg = model2.predict([np.expand_dims(mov_subvol.squeeze(), axis=(0, -1)),
-                                                 np.expand_dims(fx_subvol.squeeze(), axis=(0, -1))])
-            warp_field_lst.append(warp_second_reg[0, ...])
+            warp_field_lst = []
+            for fx_subvol, mov_subvol in zip(lst_subvol_fx, lst_subvol_mov):
+                _, warp_second_reg = model2.predict([np.expand_dims(mov_subvol.squeeze(), axis=(0, -1)),
+                                                     np.expand_dims(fx_subvol.squeeze(), axis=(0, -1))])
+                warp_field_lst.append(warp_second_reg[0, ...])
 
-        is_warp_half_res = False if warp_field_lst[0].shape[0] == model_in_shape[0] else True
+            is_warp_half_res = False if warp_field_lst[0].shape[0] == model_in_shape[0] else True
 
-        model_in_shape_second_reg = np.array(model_in_shape)
-        if is_warp_half_res:
-            moving_shape = np.array(moving.shape)
-            for i in range(3):
-                model_in_shape_second_reg[i] = model_in_shape_second_reg[i] // 2
-                moving_shape[i] = moving_shape[i] // 2
-            new_coords = []
-            for coord in lst_coords_subvol:
-                x_min, x_max, y_min, y_max, z_min, z_max = coord
-                x_min, x_max, y_min, y_max, z_min, z_max = x_min // 2, x_max // 2, y_min // 2, y_max // 2, z_min // 2, z_max // 2
-                new_coords.append((x_min, x_max, y_min, y_max, z_min, z_max))
-            lst_coords_subvol = new_coords
-        else:
-            moving_shape = moving.shape
+            model_in_shape_second_reg = np.array(model_in_shape)
+            if is_warp_half_res:
+                scale=2
+                moving_shape = np.array(moving.shape)
+                for i in range(3):
+                    model_in_shape_second_reg[i] = model_in_shape_second_reg[i] // 2
+                    moving_shape[i] = moving_shape[i] // 2
+                new_coords = []
+                for coord in lst_coords_subvol:
+                    x_min, x_max, y_min, y_max, z_min, z_max = coord
+                    x_min, x_max, y_min, y_max, z_min, z_max = x_min // 2, x_max // 2, y_min // 2, y_max // 2, z_min // 2, z_max // 2
+                    new_coords.append((x_min, x_max, y_min, y_max, z_min, z_max))
+                lst_coords_subvol = new_coords
+            else:
+                scale=None
+                moving_shape = moving.shape
 
-        second_warp_field = get_def_field_from_subvol(model_in_shape_second_reg, moving_shape, lst_coords_subvol, warp_field_lst)
+            second_warp_field = get_def_field_from_subvol(model_in_shape_second_reg, moving_shape, lst_coords_subvol, warp_field_lst)
 
-        warp = vxm.utils.compose([K.constant(first_warp_field), K.constant(second_warp_field)])
-        warp_data = K.eval(warp)
+            warp = vxm.utils.compose([K.constant(first_warp_field), K.constant(second_warp_field)])
+            warp_data = K.eval(warp)
 
-        if is_warp_half_res:
-            warp_affine = np.copy(fixed.affine)
-            for i in range(3):
-                warp_affine[i, i] = warp_affine[i, i] * 2
-            warp = nib.Nifti1Image(warp_data, warp_affine)
-            def_field_nii = resample_nib(warp, new_size=[2, 2, 2, 1], new_size_type='factor', image_dest=None,
-                                         interpolation='spline', mode='constant')
-        else:
             def_field_nii = nib.Nifti1Image(warp_data, fixed.affine)
-        nib.save(def_field_nii, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
-        warp_in_original_space = resample_img(def_field_nii, target_affine=moving_nii.affine,
-                                              target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
-        nib.save(warp_in_original_space, os.path.join(f'{mov_im_path}_warp_original_dim.nii.gz'))
+            nib.save(def_field_nii, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
+            warp_in_original_space = resample_img(def_field_nii, target_affine=moving_nii.affine,
+                                                  target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
+            nib.save(warp_in_original_space, os.path.join(f'{mov_im_path}_warp_original_dim.nii.gz'))
 
-        moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
-                                           add_batch_axis=True, add_feat_axis=True)
-        warp_to_apply = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'),
-                                                  add_batch_axis=True, ret_affine=True)
+            moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
+                                               add_batch_axis=True, add_feat_axis=True)
+            warp_to_apply = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'),
+                                                      add_batch_axis=True, ret_affine=True)
 
-        moved = vxm.networks.Transform(moving.shape[1:-1],
-                                       interp_method=warp_interp,
-                                       nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
+            moved = vxm.networks.Transform(moving.shape[1:-1],
+                                           interp_method=warp_interp,
+                                           rescale=scale,
+                                           nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
 
-        # save moved image
-        vxm.py.utils.save_volfile(moved.squeeze(), os.path.join(f'{mov_im_path}_proc_reg_to_{fx_contrast}.nii.gz'), fixed.affine)
+            # save moved image
+            vxm.py.utils.save_volfile(moved.squeeze(), os.path.join(f'{mov_im_path}_proc_reg_to_{fx_contrast}.nii.gz'), fixed.affine)
 
     moved_data = moved.squeeze()
     moved_nii = nib.Nifti1Image(moved_data, fixed.affine)
