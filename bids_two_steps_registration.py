@@ -351,10 +351,7 @@ def register(model_inference_specs, reg_model1, reg_model2, fx_im_path, mov_im_p
             # Second registration
             moved, warp_second_reg = model2.predict([np.expand_dims(moved_first_reg.squeeze(), axis=(0, -1)),
                                                      np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
-            warp_second = nib.Nifti1Image(warp_second_reg[0, ...], fixed.affine)
 
-            nib.save(warp_second, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'))
-            os.remove(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'))
             warp = vxm.utils.compose([K.constant(warp_first_reg[0, ...]), K.constant(warp_second_reg[0, ...])])
             warp_data = K.eval(warp)
             warp_affine = np.copy(fixed.affine)
@@ -365,7 +362,7 @@ def register(model_inference_specs, reg_model1, reg_model2, fx_im_path, mov_im_p
             nib.save(warp_in_original_space, os.path.join(f'{mov_im_path}_warp_original_dim.nii.gz'))
             deform = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'),
                                                add_batch_axis=True, ret_affine=True)
-            moved = vxm.networks.Transform(moving.shape[1:-1], interp_method=warp_interp, rescale=2,
+            moved = vxm.networks.Transform(moving.shape[1:-1], interp_method=warp_interp, rescale=scale,
                                            nb_feats=moving.shape[-1]).predict([moving, deform[0]])
 
         vxm.py.utils.save_volfile(moved.squeeze(), os.path.join(f'{mov_im_path}_proc_reg_to_{fx_contrast}.nii.gz'),
