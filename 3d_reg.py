@@ -116,7 +116,7 @@ def resample_nib(image, new_size=None, new_size_type=None, image_dest=None, inte
     return img_r
 
 
-def preprocess(model_inference_specs, im_nii, mov_im_nii):
+def preprocess(model_inference_specs, im_nii, mov_im_nii, resample_interp='nn'):
     """
     Scale volumes and create subvolumes of the correct shape.
     Return the preprocessed volumes (scaling, zero-padding, isotropic resolution of 1mm) as well as the
@@ -132,10 +132,10 @@ def preprocess(model_inference_specs, im_nii, mov_im_nii):
 
     # Change the resolution to isotropic 1 mm resolution
     fx_resampled_nii = resample_nib(nib.Nifti1Image(scaled_fx_img, im_nii.affine), new_size=[1, 1, 1],
-                                    new_size_type='mm', image_dest=None, interpolation='linear', mode='constant')
+                                    new_size_type='mm', image_dest=None, interpolation=resample_interp, mode='constant')
     fx_img_res111 = fx_resampled_nii.get_fdata()
     mov_resampled_nii = resample_nib(nib.Nifti1Image(scaled_mov_img, mov_im_nii.affine),
-                                     image_dest=fx_resampled_nii, interpolation='linear', mode='constant')
+                                     image_dest=fx_resampled_nii, interpolation=resample_interp, mode='constant')
     mov_img_res111 = mov_resampled_nii.get_fdata()
 
     # Ensure that the volumes can be used in the registration model
@@ -259,12 +259,20 @@ def get_def_field_from_subvol(model_in_shape, im_shape, lst_coords_subvol, lst_w
 
 
 def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir='res',
-             out_im_path='warped_im', out_field_path='deform_field'):
+             warp_interp='linear', resample_interp='linear', out_im_path='warped_im', out_field_path='deform_field'):
     """
     Load a registration model, preprocess the two images and register the moving image to the fixed one.
     Save the warped image and the deformation field in the paths specified.
     """
 
+    if warp_interp not in ['nearest', 'linear']:
+        warp_interp = 'linear'
+        
+    if resample_interp not in ['nearest', 'linear', 'spline']:
+        resample_interp = 'linear'
+    if resample_interp == 'nearest':
+        resample_interp = 'nn'
+    
     model = vxm.networks.VxmDense.load(model_path, input_model=None)
     reg_model = model
 
@@ -276,7 +284,7 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
     moving_nii = nib.load(mov_im_path)
 
     fixed, moving, lst_subvol_fx, lst_subvol_mov, lst_coords_subvol = \
-        preprocess(model_inference_specs, fixed_nii, moving_nii)
+        preprocess(model_inference_specs, fixed_nii, moving_nii, resample_interp)
 
     if model_inference_specs['use_subvol']:
         model_in_shape = (int(np.ceil(model_inference_specs['subvol_size'][0] // 16)) * 16,
@@ -297,24 +305,36 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
     model.set_weights(reg_model.get_weights())
 
     if not model_inference_specs['use_subvol']:
-        moved, warp = model.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
+        if warp_interp == 'linear':
+            moved, warp = model.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
+                                         np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
+        else:
+            _, warp = model.predict([np.expand_dims(moving.get_fdata().squeeze(), axis=(0, -1)),
                                      np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
         warp_data = warp[0, ...]
 
-        is_warp_half_res = False if warp_data.shape[0] == model_in_shape[0] else True
-        if is_warp_half_res:
-            warp_affine = np.copy(fixed.affine)
-            for i in range(3):
-                warp_affine[i, i] = warp_affine[i, i] * 2
-            warp = nib.Nifti1Image(warp_data, warp_affine)
-            warp = resample_nib(warp, new_size=[2, 2, 2, 1], new_size_type='factor', image_dest=None,
-                                interpolation='linear', mode='constant')
-        else:
-            warp = nib.Nifti1Image(warp_data, fixed.affine)
+        scale = None if warp_data.shape[0] == model_in_shape[0] else 2
+        warp = nib.Nifti1Image(warp_data, fixed.affine)
 
+        nib.save(warp, os.path.join(f'{mov_im_path}_proc_field.nii.gz'))
         warp_in_original_space = resample_img(warp, target_affine=moving_nii.affine,
                                               target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
         nib.save(warp_in_original_space, warp_path)
+
+        if not warp_interp == 'linear':
+            nib.save(moving, os.path.join(f'{mov_im_path}_proc.nii.gz'))
+            moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
+                                               add_batch_axis=True, add_feat_axis=True)
+            warp_to_apply = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field.nii.gz'),
+                                                      add_batch_axis=True, ret_affine=True)
+    
+            os.remove(os.path.join(f'{mov_im_path}_proc.nii.gz'))
+            os.remove(os.path.join(f'{mov_im_path}_proc_field.nii.gz'))
+    
+            moved = vxm.networks.Transform(moving.shape[1:-1],
+                                           interp_method=warp_interp,
+                                           rescale=scale,
+                                           nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
 
     else:
         
@@ -327,6 +347,7 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
         is_warp_half_res = False if warp_field_lst[0].shape[0] == model_in_shape[0] else True
 
         if is_warp_half_res:
+            scale = 2
             model_in_shape = np.array(model_in_shape)
             moving_shape = np.array(moving.shape)
             for i in range(3):
@@ -339,19 +360,12 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
                 new_coords.append((x_min, x_max, y_min, y_max, z_min, z_max))
             lst_coords_subvol = new_coords
         else:
+            scale = None
             moving_shape = moving.shape
 
         warp_field = get_def_field_from_subvol(model_in_shape, moving_shape, lst_coords_subvol, warp_field_lst)
 
-        if is_warp_half_res:
-            warp_affine = np.copy(fixed.affine)
-            for i in range(3):
-                warp_affine[i, i] = warp_affine[i, i] * 2
-            warp = nib.Nifti1Image(warp_field, warp_affine)
-            def_field_nii = resample_nib(warp, new_size=[2, 2, 2, 1], new_size_type='factor', image_dest=None,
-                                         interpolation='spline', mode='constant')
-        else:
-            def_field_nii = nib.Nifti1Image(warp_field, affine=fixed.affine)
+        def_field_nii = nib.Nifti1Image(warp_field, affine=fixed.affine)
 
         nib.save(def_field_nii, os.path.join(f'{mov_im_path}_proc_field.nii.gz'))
         warp_in_original_space = resample_img(def_field_nii, target_affine=moving_nii.affine,
@@ -367,7 +381,10 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
         os.remove(os.path.join(f'{mov_im_path}_proc.nii.gz'))
         os.remove(os.path.join(f'{mov_im_path}_proc_field.nii.gz'))
 
-        moved = vxm.networks.Transform(moving.shape[1:-1], nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
+        moved = vxm.networks.Transform(moving.shape[1:-1],
+                                       interp_method=warp_interp,
+                                       rescale=scale,
+                                       nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
 
     moved_data = moved.squeeze()
     moved_nii = nib.Nifti1Image(moved_data, fixed.affine)
@@ -392,6 +409,13 @@ if __name__ == "__main__":
 
     parser.add_argument('--res-dir', required=False, default='res', help='results output directory (default: res)')
 
+    parser.add_argument('--warp-interp', default='linear',
+                        help='interpolation method to obtain the registered volume using the warping field outputted '
+                             'by the registration model. Choice between linear and nearest (default: linear)')
+    parser.add_argument('--resample-interp', default='linear',
+                        help='interpolation method used to resample the volumes to a 1 mm isotropic resolution. '
+                             'Choice between linear, spline and nearest (default: linear)')
+    
     parser.add_argument('--out-img-name', required=False, default='warped_im',
                         help='name of the warped image that will result')
     parser.add_argument('--def-field-name', required=False, default='deform_field',
@@ -402,5 +426,5 @@ if __name__ == "__main__":
     with open(args.config_path) as config_file:
         model_inference_specs = json.load(config_file)
 
-    run_main(model_inference_specs, args.model_path, args.fx_img_path,
-             args.mov_img_path, args.res_dir, args.out_img_name, args.def_field_name)
+    run_main(model_inference_specs, args.model_path, args.fx_img_path, args.mov_img_path, 
+             args.res_dir, args.warp_interp, args.resample_interp, args.out_img_name, args.def_field_name)

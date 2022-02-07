@@ -6,5 +6,7 @@
   "int_res": 2,
   "svf_res": 2,
   "enc": [256, 256, 256, 256],
-  "dec": [256, 256, 256, 256, 256, 256]
+  "dec": [256, 256, 256, 256, 256, 256],
+  "warp_interpolation": "linear",
+  "resample_interpolation": "linear"
 }

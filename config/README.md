@@ -63,6 +63,9 @@ Description of the different parameters that can be modified/specified in the co
 - `use_subvol`: boolean to decide whether to use the whole volume as input of the registration model (False) (better results, more computational resources needed) or to create subvolumes to use as input of the registration model (True) before constructing the warping field that will be applied to the whole volume (default: false)
 - `subvol_size`: the size of the subvolumes used (if `use_subvol` is true). Need to be a list of 3 elements representing the size used for each dimension (default: [80, 80, 96])
 - `min_perc_overlap`: the minimum percentage of overlap of the subvolumes (if `use_subvol` is true). Can be in percent (ex: 10) or in fraction (ex: 0.1) (default: 0.1)
+- `warp_interpolation`: the interpolation to use to get the registered volume from the warping field outputted by the registration model. Can be "linear" or "nearest" (for the nearest neighbor interpolation) (default: "linear")
+- `resample_interpolation`: interpolation method used to resample the volumes to a 1 mm isotropic resolution during preprocessing. Can be "linear", “spline” or "nearest" (for the nearest neighbor interpolation) (default: "linear")
+
 
 ### Parameters that need to be similar to the ones used to train the registration model
 - `int_steps`: number of integration steps (default: 5)

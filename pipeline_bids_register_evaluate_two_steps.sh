@@ -65,6 +65,8 @@ AFFINE_REGISTRATION_MODEL="affine_registration_model.h5"
 # This model should ideally be more specific to deformable registration (the model can adjust for small variations anywhere)
 # The registered volume resulting from the AFFINE_REGISTRATION_MODEL is used as input for this registration model
 DEFORMABLE_REGISTRATION_MODEL="deformable_registration_model.h5"
+# Choose the config file to use (should be in the config folder)
+INFERENCE_CONFIG='config_inference.json'
 
 # Go to folder where data will be copied and processed
 cd ${PATH_DATA_PROCESSED}
