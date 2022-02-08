@@ -58,11 +58,11 @@ INFERENCE_CONFIG='config_inference.json'
 # Choose the name and the extension of the fixed volume (ex: T1w and .nii.gz) and its contrast (ex: t1)
 FX_NAME="T1w"
 FX_EXT=".nii.gz"
-FX_CONTRAST="t1"
+FX_CONTRAST="t1"  # This parameter is used for SC segmentation and should be one of {t1, t2, t2s, dwi}
 # Choose the name and the extension of the moving volume (ex: T2w and .nii.gz) and its contrast (ex: t2)
 MOV_NAME="T2w"
 MOV_EXT=".nii.gz"
-MOV_CONTRAST="t2"
+MOV_CONTRAST="t2"  # This parameter is used for SC segmentation and should be one of {t1, t2, t2s, dwi}
 # Specify if multi-sessions are available per subject: if yes set the value to 1, if no set the value to 0
 MULT_SESSIONS=0
 
@@ -131,7 +131,7 @@ else
 fi
 
 conda activate smenv
-# Compute Dice score of SC segmentation overlap before and after registration and save the results in a csv file
+# Compute metrics on SC segmentation overlap before and after registration and save the results in a csv file
 python $PATH_SCRIPT/eval_reg_on_sc_seg.py --fx-seg-path $file_fx_seg --moving-seg-path $file_mov_seg --warped-seg-path $file_mov_reg_seg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/metrics_on_sc_seg.csv --append 1
 # Compute the normalized Mutual Information and save the results in a csv file
 python $PATH_SCRIPT/eval_reg_with_mi.py --fx-im-path $file_fx_seg --moving-im-path $file_mov_seg --warped-im-path $file_mov_reg_seg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/nmi.csv --append 1
