@@ -14,6 +14,7 @@ import argparse
 import json
 import numpy as np
 import tensorflow as tf
+import tensorflow.keras.backend as K
 import nibabel as nib
 import voxelmorph as vxm
 
@@ -319,20 +320,18 @@ def register(model_inference_specs, reg_model, fx_im_path, mov_im_path, fx_contr
                                      np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
 
         warp_data = warp[0, ...]
-        
-        scale = None if warp_data.shape[0] == model_in_shape[0] else 2
-        warp = nib.Nifti1Image(warp_data, fixed.affine)
-            
-        nib.save(warp, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
-        warp_in_original_space = resample_img(warp, target_affine=moving_nii.affine,
-                                              target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
-        nib.save(warp_in_original_space, os.path.join(f'{mov_im_path}_warp_original_dim.nii.gz'))
+        if not warp_interp == 'linear':
+            warp = nib.Nifti1Image(warp_data, fixed.affine)
+            nib.save(warp, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'))
+
+        scale = 1 if warp_data.shape[0] == model_in_shape[0] else 2
 
         if not warp_interp == 'linear':
             moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
                                                add_batch_axis=True, add_feat_axis=True)
-            deform = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'),
+            deform = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'),
                                                add_batch_axis=True, ret_affine=True)
+            os.remove(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'))
             moved = vxm.networks.Transform(moving.shape[1:-1],
                                            interp_method=warp_interp,
                                            rescale=scale,
@@ -364,21 +363,19 @@ def register(model_inference_specs, reg_model, fx_im_path, mov_im_path, fx_contr
                 new_coords.append((x_min, x_max, y_min, y_max, z_min, z_max))
             lst_coords_subvol = new_coords
         else:
-            scale = None
+            scale = 1
             moving_shape = moving.shape
 
         warp_field = get_def_field_from_subvol(model_in_shape, moving_shape, lst_coords_subvol, warp_field_lst)
-
-        def_field_nii = nib.Nifti1Image(warp_field, affine=fixed.affine)
-        nib.save(def_field_nii, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
-        warp_in_original_space = resample_img(def_field_nii, target_affine=moving_nii.affine,
-                                              target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
-        nib.save(warp_in_original_space, os.path.join(f'{mov_im_path}_warp_original_dim.nii.gz'))
+        warp_data = warp_field
+        def_field_nii = nib.Nifti1Image(warp_field, fixed.affine)
+        nib.save(def_field_nii, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'))
 
         moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
                                            add_batch_axis=True, add_feat_axis=True)
-        warp_to_apply = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'),
+        warp_to_apply = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'),
                                                   add_batch_axis=True, ret_affine=True)
+        os.remove(os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}_tmp.nii.gz'))
 
         moved = vxm.networks.Transform(moving.shape[1:-1],
                                        interp_method=warp_interp,
@@ -387,11 +384,34 @@ def register(model_inference_specs, reg_model, fx_im_path, mov_im_path, fx_contr
         # save moved image
         vxm.py.utils.save_volfile(moved.squeeze(), os.path.join(f'{mov_im_path}_proc_reg_to_{fx_contrast}.nii.gz'), fixed.affine)
 
+    # Moved/registered image
     moved_data = moved.squeeze()
     moved_nii = nib.Nifti1Image(moved_data, fixed.affine)
     moved_in_original_space = resample_img(moved_nii, target_affine=moving_nii.affine,
                                            target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
     nib.save(moved_in_original_space, os.path.join(f'{mov_im_path}_reg_original_dim.nii.gz'))
+
+    # Warping field
+    # Modify the warp data so it can be used with sct_apply_transfo()
+    # (upsample if needed, add a time dimension, change the sign of some axes and set the intent code to vector)
+    warp_data = np.expand_dims(warp_data, axis=0)
+    warp_data = vxm.utils.rescale_dense_transform(warp_data, scale, interp_method='linear')
+    warp_data = K.eval(warp_data[0, ...])
+    warp_data_exp = np.expand_dims(warp_data, axis=3)
+    # The sign of the vectors in the y direction should be changed to get the same results with sct_apply_transfo()
+    # and when using model.predict() or vxm.networks.Transform()
+    # TODO: [This has been observed on some examples but I am not sure if this is specific to the examples tested or if it's a generality]
+    warp_data_exp[..., 0] = warp_data_exp[..., 0]
+    warp_data_exp[..., 1] = -warp_data_exp[..., 1]
+    warp_data_exp[..., 2] = warp_data_exp[..., 2]
+    warp = nib.Nifti1Image(warp_data_exp, fixed.affine)
+    warp.header['intent_code'] = 1007
+
+    nib.save(warp, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
+    warp_in_original_space = resample_img(warp, target_affine=moving_nii.affine,
+                                          target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
+    warp_in_original_space.header['intent_code'] = 1007
+    nib.save(warp_in_original_space, os.path.join(f'{mov_im_path}_warp_original_dim.nii.gz'))
 
 
 def run_main(model_inference_specs, reg_model_path, fx_im_path, mov_im_path, fx_im_contrast='T1w'):
