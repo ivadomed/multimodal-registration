@@ -20,7 +20,7 @@ Repository for training and using a contrast agnostic registration model based o
 This repository contains a file `train_synthmorph.py` allowing to easily use the SynthMorph method to train a contrast-invariant registration model from a config file (.json). Some additional files are provided to perform registration starting from volumes of any size (pre-processing steps included in the registration file) and to be able to generate unregistered volumes by applying a deformation field synthesized from noise distribution.
 
 In addition, different pipelines (.sh shell script) are provided: `pipeline_bids_register_evaluate.sh`, `pipeline_bids_register_evaluate_opt_affine.sh`, ...
-These pipelines offer a framework for T2w volume registration to T1w volume for each subject of any dataset following the Brain Imaging Data Structure ([BIDS](https://bids.neuroimaging.io/)) convention. Evaluation tools are included in the pipeline (using different features from the Spinal Cord Toolbox ([SCT](https://spinalcordtoolbox.com/)) to assess the registration results, focusing on the spinal cord.
+These pipelines offer a framework for the registration of pair of images of any modality (contrasts) for each subject of any dataset following the Brain Imaging Data Structure ([BIDS](https://bids.neuroimaging.io/)) convention (can be two different modalities). Evaluation tools are included in the pipeline (using different features from the Spinal Cord Toolbox ([SCT](https://spinalcordtoolbox.com/)) to assess the registration results, focusing on the spinal cord.
 
 This strategy of learning contrast-invariant registration is explored in regard of the IvadoMed’s issue [#659](https://github.com/ivadomed/ivadomed/issues/659) on multimodal segmentation tasks with non-coregistered data. Adding a contrast agnostic registration model as a preprocessing step in the IvadoMed’s pipeline may enable the use of multimodal data for segmentation tasks even when the data are not yet registered.    
 
@@ -95,8 +95,10 @@ python gen_apply_def_field.py --im-path data/t2.nii.gz
 
 ## Registration & Evaluation pipeline
 
-A pipeline for T2w volume registration to T1w volume for each subject of any dataset following Brain Imaging Data Structure ([BIDS](https://bids.neuroimaging.io/)) convention is provided with the shell script `pipeline_bids_register_evaluate.sh`. 
-For each subject of the dataset, the T2w volume will be registered to the T1w volume using a registration model which name should be specified in the shell script and that should be located in the `model/` folder and a config file for the inference parameters that needs to be in the `config/` folder. This first part of the pipeline leads to the creation of 3 new files for each subject: `sub-xx_T1w_proc.nii.gz`, `sub-xx_T2w_proc.nii.gz` and `sub-xx_T2w_proc_reg_to_T1w.nii.gz`. It is done with the file `bids_registration.py`.  
+A pipeline for the registration of a moving volume of a specified modality/contrast to a fixed volume of another specified modality/contrast for each subject of any dataset following Brain Imaging Data Structure ([BIDS](https://bids.neuroimaging.io/)) convention is provided with the shell script `pipeline_bids_register_evaluate.sh`. 
+For each subject of the dataset, the moving volume will be registered to the fixed volume using a registration model which name should be defined in the shell script and that should be located in the `model/` folder and a config file for the inference parameters that needs to be in the `config/` folder. The name/contrast/extension of the moving and fixed volumes should also be specified. Everything that needs to be defined is in the section `PARAMETERS TO SPECIFY` of the shell script. Once this is done, the whole process will run automatically.
+
+The first part of the pipeline concerns the preprocessing and registration steps and leads to the creation of 3 new files for each subject: `sub-xx_[contrast_fixed]_proc.nii.gz`, `sub-xx_[contrast_moving]_proc.nii.gz` and `sub-xx_[contrast_moving]_proc_reg_to_[contrast_fixed].nii.gz`. It is done with the file `bids_registration.py`.  
 
 In the second part of the pipeline, these 3 files are used to compute some measurements and obtain a QC report in order to have a an idea of the registration performance. One measurement, the normalized Mutual Information is computed directly on the files obtained with the registration process (first part). It is done with the file `eval_reg_with_mi.py` and results in the file `nmi.csv` that summarises the results obtained for the different comparisons done. 
 
@@ -105,7 +107,7 @@ The spinal cord segmentations are saved and used to compute the volume overlap (
 
 Additionally, a Quality Control (QC) report is generated using [`sct_qc`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-qc) from SCT allowing to control the spinal cord segmentations as well as the spinal cord registration. This report takes the form of a `.html` file and can be found at `qc/index.html` in your result folder.
 
-<img width="1000" alt="Capture d’écran 2022-01-31 à 10 26 49" src="https://user-images.githubusercontent.com/32447627/151821798-d2f32611-0542-4c0c-9c38-eef2550a077b.png">
+<img width="1000" alt="Capture d’écran 2022-02-08 à 14 39 38" src="https://user-images.githubusercontent.com/32447627/153063155-fa86f824-2014-4ebc-8747-ffb3f10ffcd1.png">
 
 The files obtained during the process (segmentation, processed volumes or deformation fields) are organised into different folders. Two parameters at the beginning of the shell script are monitoring the organisation of the output files in the `anat` folder:
 - `DEBUGGING` 
@@ -131,7 +133,7 @@ The addition of affine registration in the pipeline is thus optional and can be 
 
 The affine registration step is done with [`sct_register_multimodal`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-register-multimodal) from the [Spinal Cord Toolbox](https://spinalcordtoolbox.com/index.html) and using the centermass algorithm, which is a slice wise center of mass alignment done on the spinal cord segmentations (computed on the original input volumes).
 
-<img width="1000" alt="Capture d’écran 2022-01-31 à 10 27 05" src="https://user-images.githubusercontent.com/32447627/151821937-42746787-8b40-400f-8c84-5a4d1ff064f4.png">
+<img width="1000" alt="Capture d’écran 2022-02-08 à 14 39 22" src="https://user-images.githubusercontent.com/32447627/153063094-3eb28ad9-a3f1-4815-9624-f07e0bd959ef.png">
 
 **To run the shell script**, [`sct_run_batch`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-run-batch) from SCT is used.  
 In the project directory, if your BIDS dataset is in the same directory in the `bids_dataset` folder, you can execute the following command to run the registration and evaluation pipeline:
@@ -143,12 +145,12 @@ sct_run_batch -jobs 1 -path-data bids_dataset -path-out res_registration -script
 
 ## Registration & Evaluation pipeline for large displacements (Two steps approach)
 
-This pipeline (`pipeline_bids_register_evaluate_two_steps.sh`) is an updated version of the original pipeline (`pipeline_bids_register_evaluate.sh`) that uses two registration models successively to register T2w volume to T1w volume for each subject of any dataset following BIDS convention. This approach of using two successive registration models (the registered volume obtained from the first registration model is used as an input for the second model) improves the registration accuracy, especially for largely displaced volumes.  
+This pipeline (`pipeline_bids_register_evaluate_two_steps.sh`) is an updated version of the original pipeline (`pipeline_bids_register_evaluate.sh`) that uses two registration models successively to register a moving volume to fixed volume for each subject of any dataset following BIDS convention. This approach of using two successive registration models (the registered volume obtained from the first registration model is used as an input for the second model) improves the registration accuracy, especially for largely displaced volumes.  
 The first model aims to ensure that the two volumes to register are well aligned (similar to a rigid or affine registration) whereas the second model refines the registration. The two models are outputting a deformation field and are therefore doing deformable registration. However, the two models used should be trained with different characteristics. The first one should learn to register data deformed with a smooth field whereas the second model should learn on data with a lot of small deformations everywhere. This can be done for example by setting the `vel_res` parameter of the config file (when training the registration model) to `[32, 64]` for the first model and to `16` for the second model. 
 This approach worked well to register data that have been randomly affine transformed (translation, scaling and rotation) which is not necessarily the case when using a single registration model.  
 To use this approach, you need two registration models and specify them in the `pipeline_bids_register_evaluate_two_steps.sh` file. 
 
-<img width="1000" alt="Capture d’écran 2022-01-31 à 10 27 25" src="https://user-images.githubusercontent.com/32447627/151821991-4650fb1e-6394-4fd8-b131-c551845f65a9.png">
+<img width="1000" alt="Capture d’écran 2022-02-08 à 14 40 01" src="https://user-images.githubusercontent.com/32447627/153063021-bf05f147-b7d8-4e4c-b1a5-c5f35b24ac3b.png">
 
 **To run the shell script**, [`sct_run_batch`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-run-batch) from SCT is used.  
 In the project directory, if your BIDS dataset is in the same directory in the `bids_dataset` folder, you can execute the following command to run the registration and evaluation pipeline:
