@@ -514,13 +514,28 @@ def register(model_inference_specs, reg_model1, reg_model2, fx_im_path, mov_im_p
     warp_data = np.expand_dims(warp_data, axis=0)
     warp_data = vxm.utils.rescale_dense_transform(warp_data, scale, interp_method='linear')
     warp_data = K.eval(warp_data[0, ...])
+
+    # Change the sign of the vectors and the order of the axes components to be correctly used with sct_apply_transfo
+    # and to to get the same results with sct_apply_transfo() and when using model.predict() or vxm.networks.Transform()
+    orientation_conv = "RAI"
+    fx_im_orientation = list(nib.aff2axcodes(-fixed_nii.affine))
+    opposite_character = {'L': 'R', 'R': 'L', 'A': 'P', 'P': 'A', 'I': 'S', 'S': 'I'}
+
+    perm = [0, 1, 2]
+    inversion = [1, 1, 1]
+    for i, character in enumerate(orientation_conv):
+        try:
+            perm[i] = fx_im_orientation.index(character)
+        except ValueError:
+            perm[i] = fx_im_orientation.index(opposite_character[character])
+            inversion[i] = -1
+
     warp_data_exp = np.expand_dims(warp_data, axis=3)
-    # The sign of the vectors in the y direction should be changed to get the same results with sct_apply_transfo()
-    # and when using model.predict() or vxm.networks.Transform()
-    # TODO: [This has been observed on some examples but I am not sure if this is specific to the examples tested or if it's a generality]
-    warp_data_exp[..., 0] = warp_data_exp[..., 0]
-    warp_data_exp[..., 1] = -warp_data_exp[..., 1]
-    warp_data_exp[..., 2] = warp_data_exp[..., 2]
+
+    warp_data_exp_copy = np.copy(warp_data_exp)
+    warp_data_exp[..., 0] = inversion[0] * warp_data_exp_copy[..., perm[0]]
+    warp_data_exp[..., 1] = inversion[1] * warp_data_exp_copy[..., perm[1]]
+    warp_data_exp[..., 2] = inversion[2] * warp_data_exp_copy[..., perm[2]]
     warp = nib.Nifti1Image(warp_data_exp, fixed.affine)
     warp.header['intent_code'] = 1007
 
