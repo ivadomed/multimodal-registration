@@ -74,6 +74,10 @@ DEBUGGING=1
 # will later be used for other tasks, such as segmentation. If the value is 1, the res folder will be removed and the
 # registered volumes will be directly present in the anat folder and with the same names as the original volumes
 KEEP_ORI_NAMING_LOC=0
+# Choose which type of evaluation you want to run to assess the registration results (1 will run the analysis, 0 no)
+EVAL_METRICS_ON_SC_SEG=1
+EVAL_MI=1
+EVAL_JACOBIAN=1
 # ==============================================================================
 
 # Go to folder where data will be copied and processed
@@ -107,44 +111,59 @@ then
   file_mov="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc"
   file_mov_reg="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}"
   file_warp="${SUBJECT_ID}_${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
+  sub_id="${SUBJECT_ID}_${SES}"
 else
   file_fx="${SES}_${FX_NAME}_proc"
   file_mov="${SES}_${MOV_NAME}_proc"
   file_mov_reg="${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}"
   file_warp="${SUBJECT_ID}_${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
-fi
-
-# Segment spinal cord
-segment $file_fx $FX_CONTRAST
-segment $file_mov $MOV_CONTRAST
-segment $file_mov_reg $MOV_CONTRAST
-
-if [ $MULT_SESSIONS == 1 ]
-then
-  file_fx_seg="${SUBJECT_ID}_${SES}_${FX_NAME}_proc_seg"
-  file_mov_seg="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_seg"
-  file_mov_reg_seg="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}_seg"
-  sub_id="${SUBJECT_ID}_${SES}"
-else
-  file_fx_seg="${SES}_${FX_NAME}_proc_seg"
-  file_mov_seg="${SES}_${MOV_NAME}_proc_seg"
-  file_mov_reg_seg="${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}_seg"
   sub_id="${SES}"
 fi
 
+if [ $EVAL_METRICS_ON_SC_SEG == 1 ]
+then
+  # Segment spinal cord
+  segment $file_fx $FX_CONTRAST
+  segment $file_mov $MOV_CONTRAST
+  segment $file_mov_reg $MOV_CONTRAST
+
+  if [ $MULT_SESSIONS == 1 ]
+  then
+    file_fx_seg="${SUBJECT_ID}_${SES}_${FX_NAME}_proc_seg"
+    file_mov_seg="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_seg"
+    file_mov_reg_seg="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}_seg"
+  else
+    file_fx_seg="${SES}_${FX_NAME}_proc_seg"
+    file_mov_seg="${SES}_${MOV_NAME}_proc_seg"
+    file_mov_reg_seg="${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}_seg"
+  fi
+fi
+
 conda activate smenv
-# Compute metrics on SC segmentation overlap before and after registration and save the results in a csv file
-python $PATH_SCRIPT/eval_reg_on_sc_seg.py --fx-seg-path $file_fx_seg --moving-seg-path $file_mov_seg --warped-seg-path $file_mov_reg_seg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/metrics_on_sc_seg.csv --append 1
-# Compute the normalized Mutual Information and save the results in a csv file
-python $PATH_SCRIPT/eval_reg_with_mi.py --fx-im-path $file_fx_seg --moving-im-path $file_mov_seg --warped-im-path $file_mov_reg_seg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/nmi.csv --append 1
-# Compute the determinant of the Jacobian and save the results in a csv file
-python $PATH_SCRIPT/eval_reg_with_jacobian.py --def-field-path $file_warp --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/jacobian_det.csv --out-im-path $PATH_DATA_PROCESSED/$SUBJECT/anat/detJa.nii.gz --append 1
+if [ $EVAL_METRICS_ON_SC_SEG == 1 ]
+then
+  # Compute metrics on SC segmentation overlap before and after registration and save the results in a csv file
+  python $PATH_SCRIPT/eval_reg_on_sc_seg.py --fx-seg-path $file_fx_seg --moving-seg-path $file_mov_seg --warped-seg-path $file_mov_reg_seg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/metrics_on_sc_seg.csv --append 1
+fi
+if [ $EVAL_MI == 1 ]
+then
+  # Compute the normalized Mutual Information and save the results in a csv file
+  python $PATH_SCRIPT/eval_reg_with_mi.py --fx-im-path $file_fx --moving-im-path $file_mov --warped-im-path $file_mov_reg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/nmi.csv --append 1
+fi
+if [ $EVAL_JACOBIAN == 1 ]
+then
+  # Compute the determinant of the Jacobian and save the results in a csv file
+  python $PATH_SCRIPT/eval_reg_with_jacobian.py --def-field-path $file_warp --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/jacobian_det.csv --out-im-path $PATH_DATA_PROCESSED/$SUBJECT/anat/detJa.nii.gz --append 1
+fi
 conda deactivate
 
-# Generate QC report to assess registration
-sct_qc -i ${file_fx}.nii.gz -s ${file_fx_seg}.nii.gz -d ${file_mov}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
-sct_qc -i ${file_fx}.nii.gz -s ${file_fx_seg}.nii.gz -d ${file_mov_reg}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
-sct_qc -i ${file_mov}.nii.gz -s ${file_fx_seg}.nii.gz -d ${file_mov_reg}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
+if [ $EVAL_METRICS_ON_SC_SEG == 1 ]
+then
+  # Generate QC report to assess registration
+  sct_qc -i ${file_fx}.nii.gz -s ${file_fx_seg}.nii.gz -d ${file_mov}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
+  sct_qc -i ${file_fx}.nii.gz -s ${file_fx_seg}.nii.gz -d ${file_mov_reg}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
+  sct_qc -i ${file_mov}.nii.gz -s ${file_fx_seg}.nii.gz -d ${file_mov_reg}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
+fi
 
 # Rearrange the different files to obtain an output that has a better structure and is easier to use
 # The processed fixed and processed + registered moving volumes are stored in the res folder or directly in anat folder if KEEP_ORI_NAMING_LOC=1
@@ -173,12 +192,15 @@ mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_mov_reg}.nii.gz" "${PATH_DATA_
 
 if [ $DEBUGGING == 1 ]
 then
-  mkdir seg
-  filenames_seg=`ls ./*_seg.nii.gz`
-  for file in $filenames_seg
-  do
-     mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/$file" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/seg/$file"
-  done
+  if [ $EVAL_METRICS_ON_SC_SEG == 1 ]
+  then
+    mkdir seg
+    filenames_seg=`ls ./*_seg.nii.gz`
+    for file in $filenames_seg
+    do
+       mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/$file" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/seg/$file"
+    done
+  fi
   mkdir add_res
   filenames=`ls ./*.nii.gz`
   for file in $filenames
