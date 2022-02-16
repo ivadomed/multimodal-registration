@@ -79,6 +79,10 @@ DEBUGGING=1
 # will later be used for other tasks, such as segmentation. If the value is 1, the res folder will be removed and the
 # registered volumes will be directly present in the anat folder and with the same names as the original volumes
 KEEP_ORI_NAMING_LOC=0
+# Choose which type of evaluation you want to run to assess the registration results (1 will run the analysis, 0 no)
+# EVAL_METRICS_ON_SC_SEG=1 # In this pipeline this is not an option as it's required to determine whether or not to do the affine registration step
+EVAL_MI=1
+EVAL_JACOBIAN=1
 # ==============================================================================
 
 # Go to folder where data will be copied and processed
@@ -112,11 +116,13 @@ then
   file_mov="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc"
   file_mov_reg="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}"
   file_warp="${SUBJECT_ID}_${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
+  sub_id="${SUBJECT_ID}_${SES}"
 else
   file_fx="${SES}_${FX_NAME}_proc"
   file_mov="${SES}_${MOV_NAME}_proc"
   file_mov_reg="${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}"
   file_warp="${SUBJECT_ID}_${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
+  sub_id="${SES}"
 fi
 
 # Segment spinal cord
@@ -129,12 +135,10 @@ then
   file_fx_seg="${SUBJECT_ID}_${SES}_${FX_NAME}_proc_seg"
   file_mov_seg="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_seg"
   file_mov_reg_seg="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}_seg"
-  sub_id="${SUBJECT_ID}_${SES}"
 else
   file_fx_seg="${SES}_${FX_NAME}_proc_seg"
   file_mov_seg="${SES}_${MOV_NAME}_proc_seg"
   file_mov_reg_seg="${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}_seg"
-  sub_id="${SES}"
 fi
 
 conda activate smenv
@@ -210,19 +214,31 @@ then
   set +e +o pipefail
   python $PATH_SCRIPT/eval_reg_on_sc_seg.py --fx-seg-path $file_fx_seg --moving-seg-path $file_mov_seg --warped-seg-path $file_mov_reg_seg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/metrics_on_sc_seg.csv --append 1
   set -e -o pipefail
-  # Compute the normalized Mutual Information and save the results in a csv file
-  python $PATH_SCRIPT/eval_reg_with_mi.py --fx-im-path $file_fx_seg --moving-im-path $file_mov_seg --warped-im-path $file_mov_reg_seg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/nmi.csv --append 1
-  # Compute the determinant of the Jacobian and save the results in a csv file
-  python $PATH_SCRIPT/eval_reg_with_jacobian.py --def-field-path $file_warp --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/jacobian_det.csv --out-im-path $PATH_DATA_PROCESSED/$SUBJECT/anat/detJa.nii.gz --append 1
+  if [ $EVAL_MI == 1 ]
+  then
+    # Compute the normalized Mutual Information and save the results in a csv file
+    python $PATH_SCRIPT/eval_reg_with_mi.py --fx-im-path $file_fx --moving-im-path $file_mov --warped-im-path $file_mov_reg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/nmi.csv --append 1
+  fi
+  if [ $EVAL_JACOBIAN == 1 ]
+  then
+    # Compute the determinant of the Jacobian and save the results in a csv file
+    python $PATH_SCRIPT/eval_reg_with_jacobian.py --def-field-path $file_warp --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/jacobian_det.csv --out-im-path $PATH_DATA_PROCESSED/$SUBJECT/anat/detJa.nii.gz --append 1
+  fi
   conda deactivate
 
 else
 
   conda activate smenv
-  # Compute the normalized Mutual Information and save the results in a csv file
-  python $PATH_SCRIPT/eval_reg_with_mi.py --fx-im-path $file_fx_seg --moving-im-path $file_mov_seg --warped-im-path $file_mov_reg_seg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/nmi.csv --append 1
-  # Compute the determinant of the Jacobian and save the results in a csv file
-  python $PATH_SCRIPT/eval_reg_with_jacobian.py --def-field-path $file_warp --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/jacobian_det.csv --out-im-path $PATH_DATA_PROCESSED/$SUBJECT/anat/detJa.nii.gz --append 1
+  if [ $EVAL_MI == 1 ]
+    then
+    # Compute the normalized Mutual Information and save the results in a csv file
+    python $PATH_SCRIPT/eval_reg_with_mi.py --fx-im-path $file_fx --moving-im-path $file_mov --warped-im-path $file_mov_reg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/nmi.csv --append 1
+  fi
+  if [ $EVAL_JACOBIAN == 1 ]
+    then
+    # Compute the determinant of the Jacobian and save the results in a csv file
+    python $PATH_SCRIPT/eval_reg_with_jacobian.py --def-field-path $file_warp --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/jacobian_det.csv --out-im-path $PATH_DATA_PROCESSED/$SUBJECT/anat/detJa.nii.gz --append 1
+  fi
   conda deactivate
 
 fi
