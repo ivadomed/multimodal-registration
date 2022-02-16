@@ -10,6 +10,7 @@ import json
 import numpy as np
 import nibabel as nib
 import voxelmorph as vxm
+import tensorflow.keras.backend as K
 
 from nilearn.image import resample_img
 from nibabel.processing import resample_from_to
@@ -313,15 +314,11 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
                                      np.expand_dims(fixed.get_fdata().squeeze(), axis=(0, -1))])
         warp_data = warp[0, ...]
 
-        scale = None if warp_data.shape[0] == model_in_shape[0] else 2
-        warp = nib.Nifti1Image(warp_data, fixed.affine)
-
-        nib.save(warp, os.path.join(f'{mov_im_path}_proc_field.nii.gz'))
-        warp_in_original_space = resample_img(warp, target_affine=moving_nii.affine,
-                                              target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
-        nib.save(warp_in_original_space, warp_path)
+        scale = 1 if warp_data.shape[0] == model_in_shape[0] else 2
 
         if not warp_interp == 'linear':
+            warp = nib.Nifti1Image(warp_data, fixed.affine)
+            nib.save(warp, os.path.join(f'{mov_im_path}_proc_field.nii.gz'))
             nib.save(moving, os.path.join(f'{mov_im_path}_proc.nii.gz'))
             moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
                                                add_batch_axis=True, add_feat_axis=True)
@@ -360,18 +357,14 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
                 new_coords.append((x_min, x_max, y_min, y_max, z_min, z_max))
             lst_coords_subvol = new_coords
         else:
-            scale = None
+            scale = 1
             moving_shape = moving.shape
 
         warp_field = get_def_field_from_subvol(model_in_shape, moving_shape, lst_coords_subvol, warp_field_lst)
+        warp_data = warp_field
 
         def_field_nii = nib.Nifti1Image(warp_field, affine=fixed.affine)
-
         nib.save(def_field_nii, os.path.join(f'{mov_im_path}_proc_field.nii.gz'))
-        warp_in_original_space = resample_img(def_field_nii, target_affine=moving_nii.affine,
-                                              target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
-        nib.save(warp_in_original_space, warp_path)
-
         nib.save(moving, os.path.join(f'{mov_im_path}_proc.nii.gz'))
         moving = vxm.py.utils.load_volfile(os.path.join(f'{mov_im_path}_proc.nii.gz'),
                                            add_batch_axis=True, add_feat_axis=True)
@@ -386,12 +379,50 @@ def run_main(model_inference_specs, model_path, fx_im_path, mov_im_path, res_dir
                                        rescale=scale,
                                        nb_feats=moving.shape[-1]).predict([moving, warp_to_apply[0]])
 
+    # Moved/registered image
     moved_data = moved.squeeze()
     moved_nii = nib.Nifti1Image(moved_data, fixed.affine)
     moved_in_original_space = resample_img(moved_nii, target_affine=moving_nii.affine,
                                            target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
 
     nib.save(moved_in_original_space, moved_path)
+
+    # Warping field
+    # Modify the warp data so it can be used with sct_apply_transfo()
+    # (upsample if needed, add a time dimension, change the sign of some axes and set the intent code to vector)
+    warp_data = np.expand_dims(warp_data, axis=0)
+    warp_data = vxm.utils.rescale_dense_transform(warp_data, scale, interp_method='linear')
+    warp_data = K.eval(warp_data[0, ...])
+
+    # Change the sign of the vectors and the order of the axes components to be correctly used with sct_apply_transfo
+    # and to to get the same results with sct_apply_transfo() and when using model.predict() or vxm.networks.Transform()
+    orientation_conv = "RAI"
+    fx_im_orientation = list(nib.aff2axcodes(-fixed_nii.affine))
+    opposite_character = {'L': 'R', 'R': 'L', 'A': 'P', 'P': 'A', 'I': 'S', 'S': 'I'}
+
+    perm = [0, 1, 2]
+    inversion = [1, 1, 1]
+    for i, character in enumerate(orientation_conv):
+        try:
+            perm[i] = fx_im_orientation.index(character)
+        except ValueError:
+            perm[i] = fx_im_orientation.index(opposite_character[character])
+            inversion[i] = -1
+
+    warp_data_exp = np.expand_dims(warp_data, axis=3)
+
+    warp_data_exp_copy = np.copy(warp_data_exp)
+    warp_data_exp[..., 0] = inversion[0] * warp_data_exp_copy[..., perm[0]]
+    warp_data_exp[..., 1] = inversion[1] * warp_data_exp_copy[..., perm[1]]
+    warp_data_exp[..., 2] = inversion[2] * warp_data_exp_copy[..., perm[2]]
+    warp = nib.Nifti1Image(warp_data_exp, fixed.affine)
+    warp.header['intent_code'] = 1007
+
+    nib.save(warp, os.path.join(f'{mov_im_path}_proc_field_to_{fx_contrast}.nii.gz'))
+    warp_in_original_space = resample_img(warp, target_affine=moving_nii.affine,
+                                          target_shape=moving_nii.get_fdata().shape, interpolation='continuous')
+    warp_in_original_space.header['intent_code'] = 1007
+    nib.save(warp_in_original_space, warp_path)
 
 
 if __name__ == "__main__":
