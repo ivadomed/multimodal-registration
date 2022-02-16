@@ -1,6 +1,6 @@
 # Multimodal Registration
 
-Repository for training and using a contrast agnostic registration model based on the work done in [SynthMorph](https://arxiv.org/pdf/2004.10282.pdf). The contrast agnostic registration model may later be used in [IvadoMed’s pipeline](https://ivadomed.org/). 
+Repository for training and using contrast agnostic registration models based on the work done in [SynthMorph](https://arxiv.org/pdf/2004.10282.pdf). The contrast agnostic registration models may later be used in [IvadoMed’s pipeline](https://ivadomed.org/). 
 
 ## Table of contents
 
@@ -20,7 +20,7 @@ Repository for training and using a contrast agnostic registration model based o
 This repository contains a file `train_synthmorph.py` allowing to easily use the SynthMorph method to train a contrast-invariant registration model from a config file (.json). Some additional files are provided to perform registration starting from volumes of any size (pre-processing steps included in the registration file) and to be able to generate unregistered volumes by applying a deformation field synthesized from noise distribution.
 
 In addition, different pipelines (.sh shell script) are provided: `pipeline_bids_register_evaluate.sh`, `pipeline_bids_register_evaluate_opt_affine.sh`, ...
-These pipelines offer a framework for the registration of pair of images of any modality (contrasts) for each subject of any dataset following the Brain Imaging Data Structure ([BIDS](https://bids.neuroimaging.io/)) convention (can be two different modalities). Evaluation tools are included in the pipeline (using different features from the Spinal Cord Toolbox ([SCT](https://spinalcordtoolbox.com/)) to assess the registration results, focusing on the spinal cord.
+These pipelines offer a framework for the registration of pair of images of any modality (contrasts) for each subject of any dataset following the Brain Imaging Data Structure ([BIDS](https://bids.neuroimaging.io/)) convention (can be two different modalities). Evaluation tools are included in the pipeline (using different features from the Spinal Cord Toolbox ([SCT](https://spinalcordtoolbox.com/) notably) to assess the registration results, focusing on the spinal cord.
 
 This strategy of learning contrast-invariant registration is explored in regard of the IvadoMed’s issue [#659](https://github.com/ivadomed/ivadomed/issues/659) on multimodal segmentation tasks with non-coregistered data. Adding a contrast agnostic registration model as a preprocessing step in the IvadoMed’s pipeline may enable the use of multimodal data for segmentation tasks even when the data are not yet registered.    
 
@@ -107,7 +107,9 @@ The spinal cord segmentations are saved and used to compute the volume overlap (
 
 Additionally, a Quality Control (QC) report is generated using [`sct_qc`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-qc) from SCT allowing to control the spinal cord segmentations as well as the spinal cord registration. This report takes the form of a `.html` file and can be found at `qc/index.html` in your result folder.
 
-<img width="1000" alt="Capture d’écran 2022-02-08 à 14 39 38" src="https://user-images.githubusercontent.com/32447627/153063155-fa86f824-2014-4ebc-8747-ffb3f10ffcd1.png">
+Eventually, the Jacobian determinants of the warping field's displacement vectors are computed to get a visualization of the transformations applied to the voxels of the moving image and determine whether each individual voxel expands, compresses or folds. A `jacobian_det.csv` file is also outputted to summarize the percentage of folding voxels notably. These computations are done with the file `eval_reg_with_jacobian.py`.
+
+<img width="1000" alt="Capture d’écran 2022-02-16 à 14 19 12" src="https://user-images.githubusercontent.com/32447627/154340638-0ae286d4-8c8e-4838-9b56-22035bb049e3.png">
 
 The files obtained during the process (segmentation, processed volumes or deformation fields) are organised into different folders. Two parameters at the beginning of the shell script are monitoring the organisation of the output files in the `anat` folder:
 - `DEBUGGING` 
@@ -133,7 +135,7 @@ The addition of affine registration in the pipeline is thus optional and can be 
 
 The affine registration step is done with [`sct_register_multimodal`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-register-multimodal) from the [Spinal Cord Toolbox](https://spinalcordtoolbox.com/index.html) and using the centermass algorithm, which is a slice wise center of mass alignment done on the spinal cord segmentations (computed on the original input volumes).
 
-<img width="1000" alt="Capture d’écran 2022-02-08 à 14 39 22" src="https://user-images.githubusercontent.com/32447627/153063094-3eb28ad9-a3f1-4815-9624-f07e0bd959ef.png">
+<img width="1000" alt="Capture d’écran 2022-02-16 à 14 19 17" src="https://user-images.githubusercontent.com/32447627/154340689-04414229-5b5f-465d-8ff8-fc6f9dba3a6e.png">
 
 **To run the shell script**, [`sct_run_batch`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-run-batch) from SCT is used.  
 In the project directory, if your BIDS dataset is in the same directory in the `bids_dataset` folder, you can execute the following command to run the registration and evaluation pipeline:
@@ -150,7 +152,7 @@ The first model aims to ensure that the two volumes to register are well aligned
 This approach worked well to register data that have been randomly affine transformed (translation, scaling and rotation) which is not necessarily the case when using a single registration model.  
 To use this approach, you need two registration models and specify them in the `pipeline_bids_register_evaluate_two_steps.sh` file. 
 
-<img width="1000" alt="Capture d’écran 2022-02-08 à 14 40 01" src="https://user-images.githubusercontent.com/32447627/153063021-bf05f147-b7d8-4e4c-b1a5-c5f35b24ac3b.png">
+<img width="1000" alt="Capture d’écran 2022-02-16 à 14 19 23" src="https://user-images.githubusercontent.com/32447627/154340725-dddb4098-3c63-49c1-b6e9-85f7e01d67e7.png">
 
 **To run the shell script**, [`sct_run_batch`](https://spinalcordtoolbox.com/user_section/command-line.html#sct-run-batch) from SCT is used.  
 In the project directory, if your BIDS dataset is in the same directory in the `bids_dataset` folder, you can execute the following command to run the registration and evaluation pipeline:
