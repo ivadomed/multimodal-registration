@@ -111,10 +111,12 @@ then
   file_fx="${SUBJECT_ID}_${SES}_${FX_NAME}_proc"
   file_mov="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc"
   file_mov_reg="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}"
+  file_warp="${SUBJECT_ID}_${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
 else
   file_fx="${SES}_${FX_NAME}_proc"
   file_mov="${SES}_${MOV_NAME}_proc"
   file_mov_reg="${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}"
+  file_warp="${SUBJECT_ID}_${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
 fi
 
 # Segment spinal cord
@@ -210,6 +212,8 @@ then
   set -e -o pipefail
   # Compute the normalized Mutual Information and save the results in a csv file
   python $PATH_SCRIPT/eval_reg_with_mi.py --fx-im-path $file_fx_seg --moving-im-path $file_mov_seg --warped-im-path $file_mov_reg_seg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/nmi.csv --append 1
+  # Compute the determinant of the Jacobian and save the results in a csv file
+  python $PATH_SCRIPT/eval_reg_with_jacobian.py --def-field-path $file_warp --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/jacobian_det.csv --out-im-path $PATH_DATA_PROCESSED/$SUBJECT/anat/detJa.nii.gz --append 1
   conda deactivate
 
 else
@@ -217,6 +221,8 @@ else
   conda activate smenv
   # Compute the normalized Mutual Information and save the results in a csv file
   python $PATH_SCRIPT/eval_reg_with_mi.py --fx-im-path $file_fx_seg --moving-im-path $file_mov_seg --warped-im-path $file_mov_reg_seg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/nmi.csv --append 1
+  # Compute the determinant of the Jacobian and save the results in a csv file
+  python $PATH_SCRIPT/eval_reg_with_jacobian.py --def-field-path $file_warp --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/jacobian_det.csv --out-im-path $PATH_DATA_PROCESSED/$SUBJECT/anat/detJa.nii.gz --append 1
   conda deactivate
 
 fi
