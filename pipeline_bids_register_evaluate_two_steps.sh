@@ -171,7 +171,7 @@ fi
 if [ $EVAL_JACOBIAN == 1 ]
 then
   # Compute the determinant of the Jacobian and save the results in a csv file
-  python $PATH_SCRIPT/eval_reg_with_jacobian.py --def-field-path $file_warp --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/jacobian_det.csv --out-im-path $PATH_DATA_PROCESSED/$SUBJECT/anat/detJa.nii.gz --append 1
+  python $PATH_SCRIPT/eval_reg_with_jacobian.py --def-field-path $file_warp_ori_dim --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/jacobian_det.csv --out-im-path $PATH_DATA_PROCESSED/$SUBJECT/anat/detJa.nii.gz --append 1
 fi
 conda deactivate
 

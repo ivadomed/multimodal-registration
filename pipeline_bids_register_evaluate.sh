@@ -110,15 +110,24 @@ then
   file_fx="${SUBJECT_ID}_${SES}_${FX_NAME}_proc"
   file_mov="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc"
   file_mov_reg="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}"
-  file_warp="${SUBJECT_ID}_${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
+  file_warp="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_field_to_${FX_NAME}.nii.gz"
+  file_warp_ori_dim="${SUBJECT_ID}_${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
   sub_id="${SUBJECT_ID}_${SES}"
+  file_mov_reg_sct_apply_transfo="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}_sct_apply_transfo"
+  file_mov_reg_sct_apply_transfo_ori_dim="${SUBJECT_ID}_${SES}_${MOV_NAME}_reg_to_${FX_NAME}_sct_apply_transfo"
 else
   file_fx="${SES}_${FX_NAME}_proc"
   file_mov="${SES}_${MOV_NAME}_proc"
   file_mov_reg="${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}"
-  file_warp="${SUBJECT_ID}_${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
+  file_warp="${SES}_${MOV_NAME}_proc_field_to_${FX_NAME}.nii.gz"
+  file_warp_ori_dim="${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
   sub_id="${SES}"
+  file_mov_reg_sct_apply_transfo="${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}_sct_apply_transfo"
+  file_mov_reg_sct_apply_transfo_ori_dim="${SES}_${MOV_NAME}_reg_to_${FX_NAME}_sct_apply_transfo"
 fi
+
+sct_apply_transfo -i ${file_mov_before_proc}${MOV_EXT} -d ${file_mov_before_proc}${MOV_EXT} -w $file_warp_ori_dim -o ${file_mov_reg_sct_apply_transfo_ori_dim}.nii.gz -x linear
+sct_apply_transfo -i ${file_mov}.nii.gz -d ${file_mov}.nii.gz -w $file_warp -o ${file_mov_reg_sct_apply_transfo}.nii.gz -x linear
 
 if [ $EVAL_METRICS_ON_SC_SEG == 1 ]
 then
@@ -153,7 +162,7 @@ fi
 if [ $EVAL_JACOBIAN == 1 ]
 then
   # Compute the determinant of the Jacobian and save the results in a csv file
-  python $PATH_SCRIPT/eval_reg_with_jacobian.py --def-field-path $file_warp --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/jacobian_det.csv --out-im-path $PATH_DATA_PROCESSED/$SUBJECT/anat/detJa.nii.gz --append 1
+  python $PATH_SCRIPT/eval_reg_with_jacobian.py --def-field-path $file_warp_ori_dim --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/jacobian_det.csv --out-im-path $PATH_DATA_PROCESSED/$SUBJECT/anat/detJa.nii.gz --append 1
 fi
 conda deactivate
 
