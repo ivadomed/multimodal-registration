@@ -98,11 +98,11 @@ cd ${SUBJECT}/anat/
 
 if [ $MULT_SESSIONS == 1 ]
 then
-  file_fx_before_proc="${SUBJECT_ID}_${SES}_${FX_NAME}${FX_EXT}"
-  file_mov_before_proc="${SUBJECT_ID}_${SES}_${MOV_NAME}${MOV_EXT}"
+  file_fx_before_proc="${SUBJECT_ID}_${SES}_${FX_NAME}"
+  file_mov_before_proc="${SUBJECT_ID}_${SES}_${MOV_NAME}"
 else
-  file_fx_before_proc="${SES}_${FX_NAME}${FX_EXT}"
-  file_mov_before_proc="${SES}_${MOV_NAME}${MOV_EXT}"
+  file_fx_before_proc="${SES}_${FX_NAME}"
+  file_mov_before_proc="${SES}_${MOV_NAME}"
 fi
 
 CONDA_BASE=$(conda info --base)
@@ -111,7 +111,7 @@ source $CONDA_BASE/etc/profile.d/conda.sh
 conda activate smenv
 # ---- First & Second registration steps ---- #
 # Perform processing and registration
-python $PATH_SCRIPT/bids_two_steps_registration.py --model1-path $PATH_SCRIPT/model/$AFFINE_REGISTRATION_MODEL --model2-path $PATH_SCRIPT/model/$DEFORMABLE_REGISTRATION_MODEL --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path $file_fx_before_proc --mov-img-path $file_mov_before_proc --fx-img-contrast $FX_NAME --one-cpu-tf False
+python $PATH_SCRIPT/bids_two_steps_registration.py --model1-path $PATH_SCRIPT/model/$AFFINE_REGISTRATION_MODEL --model2-path $PATH_SCRIPT/model/$DEFORMABLE_REGISTRATION_MODEL --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path ${file_fx_before_proc}${FX_EXT} --mov-img-path ${file_mov_before_proc}${MOV_EXT} --fx-img-contrast $FX_NAME --one-cpu-tf False
 conda deactivate
 
 if [ $MULT_SESSIONS == 1 ]
@@ -119,15 +119,24 @@ then
   file_fx="${SUBJECT_ID}_${SES}_${FX_NAME}_proc"
   file_mov="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc"
   file_mov_reg="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}"
-  file_warp="${SUBJECT_ID}_${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
+  file_warp="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_field_to_${FX_NAME}.nii.gz"
+  file_warp_ori_dim="${SUBJECT_ID}_${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
   sub_id="${SUBJECT_ID}_${SES}"
+  file_mov_reg_sct_apply_transfo="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}_sct_apply_transfo"
+  file_mov_reg_sct_apply_transfo_ori_dim="${SUBJECT_ID}_${SES}_${MOV_NAME}_reg_to_${FX_NAME}_sct_apply_transfo"
 else
   file_fx="${SES}_${FX_NAME}_proc"
   file_mov="${SES}_${MOV_NAME}_proc"
   file_mov_reg="${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}"
-  file_warp="${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
+  file_warp="${SES}_${MOV_NAME}_proc_field_to_${FX_NAME}.nii.gz"
+  file_warp_ori_dim="${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
   sub_id="${SES}"
+  file_mov_reg_sct_apply_transfo="${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}_sct_apply_transfo"
+  file_mov_reg_sct_apply_transfo_ori_dim="${SES}_${MOV_NAME}_reg_to_${FX_NAME}_sct_apply_transfo"
 fi
+
+sct_apply_transfo -i ${file_mov_before_proc}${MOV_EXT} -d ${file_mov_before_proc}${MOV_EXT} -w $file_warp_ori_dim -o ${file_mov_reg_sct_apply_transfo_ori_dim}.nii.gz -x linear
+sct_apply_transfo -i ${file_mov}.nii.gz -d ${file_mov}.nii.gz -w $file_warp -o ${file_mov_reg_sct_apply_transfo}.nii.gz -x linear
 
 if [ $EVAL_METRICS_ON_SC_SEG == 1 ]
 then
@@ -180,8 +189,8 @@ fi
 # If DEBUGGING=1, the additional volumes computed during the process are stored in the add_res folder
 # and the segmentations are stored in the seg folder
 mkdir origin
-mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_fx_before_proc}" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/${file_fx_before_proc}"
-mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_mov_before_proc}" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/${file_mov_before_proc}"
+mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_fx_before_proc}${FX_EXT}" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/${file_fx_before_proc}${FX_EXT}"
+mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_mov_before_proc}${MOV_EXT}" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/${file_mov_before_proc}${MOV_EXT}"
 
 if [ $MULT_SESSIONS == 1 ]
 then
