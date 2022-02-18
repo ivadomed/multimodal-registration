@@ -126,7 +126,7 @@ else
   file_mov_reg_sct_apply_transfo_ori_dim="${SES}_${MOV_NAME}_reg_to_${FX_NAME}_sct_apply_transfo"
 fi
 
-sct_apply_transfo -i ${file_mov_before_proc}${MOV_EXT} -d ${file_mov_before_proc}${MOV_EXT} -w $file_warp_ori_dim -o ${file_mov_reg_sct_apply_transfo_ori_dim}.nii.gz -x linear
+sct_apply_transfo -i $file_mov_before_proc -d $file_mov_before_proc -w $file_warp_ori_dim -o ${file_mov_reg_sct_apply_transfo_ori_dim}.nii.gz -x linear
 sct_apply_transfo -i ${file_mov}.nii.gz -d ${file_mov}.nii.gz -w $file_warp -o ${file_mov_reg_sct_apply_transfo}.nii.gz -x linear
 
 if [ $EVAL_METRICS_ON_SC_SEG == 1 ]
