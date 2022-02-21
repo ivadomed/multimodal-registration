@@ -34,11 +34,10 @@ start=`date +%s`
 segment(){
   local file="$1"
   local contrast="$2"
-  folder_contrast="anat"
 
   echo "Proceeding with automatic segmentation"
   # Segment spinal cord
-  sct_deepseg_sc -i ${file}.nii.gz -c $contrast -qc ${PATH_QC} -qc-subject ${SUBJECT}
+  sct_deepseg_sc -i ${file}.nii.gz -c $contrast -qc ${PATH_QC}_seg -qc-subject ${SUBJECT}
 }
 
 # SCRIPT STARTS HERE
@@ -160,9 +159,8 @@ conda deactivate
 if [ $EVAL_METRICS_ON_SC_SEG == 1 ]
 then
   # Generate QC report to assess registration
-  sct_qc -i ${file_fx}.nii.gz -s ${file_fx_seg}.nii.gz -d ${file_mov}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
-  sct_qc -i ${file_fx}.nii.gz -s ${file_fx_seg}.nii.gz -d ${file_mov_reg}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
-  sct_qc -i ${file_mov}.nii.gz -s ${file_fx_seg}.nii.gz -d ${file_mov_reg}.nii.gz -p sct_register_multimodal -qc ${PATH_QC} -qc-subject ${SUBJECT}
+  sct_qc -i ${file_fx}.nii.gz -s ${file_fx_seg}.nii.gz -d ${file_mov}.nii.gz -p sct_register_multimodal -qc ${PATH_QC}_reg -qc-subject ${SUBJECT}
+  sct_qc -i ${file_fx}.nii.gz -s ${file_fx_seg}.nii.gz -d ${file_mov_reg}.nii.gz -p sct_register_multimodal -qc ${PATH_QC}_reg -qc-subject ${SUBJECT}
 fi
 
 # Rearrange the different files to obtain an output that has a better structure and is easier to use
