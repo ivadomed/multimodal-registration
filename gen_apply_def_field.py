@@ -36,7 +36,7 @@ if __name__ == "__main__":
     p.add_argument('--def-scales', type=int, nargs='+', default=[16, 32, 64],
                    help='list of relative resolutions at which noise is sampled normally (default: 16 32 64)')
     p.add_argument('--def-max-std', type=int, default=3,
-                   help='max std for the gaussian dist of noise in label maps generation (def field) (default: 16)')
+                   help='max std for the gaussian dist of noise in label maps generation (def field) (default: 3)')
 
     # application of deformation field
     p.add_argument('--interp', default='linear', help='interpolation method linear/nearest (default: linear)')
