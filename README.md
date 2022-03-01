@@ -1,6 +1,12 @@
 # Multimodal Registration
 
-Repository for training and using contrast agnostic registration models based on the work done in [SynthMorph](https://arxiv.org/pdf/2004.10282.pdf). The contrast agnostic registration models may later be used in [IvadoMed’s pipeline](https://ivadomed.org/). 
+Repository for training and using contrast agnostic registration models based on the work done in [SynthMorph](https://arxiv.org/pdf/2004.10282.pdf). The contrast agnostic registration models may later be used in [IvadoMed’s pipeline](https://ivadomed.org/) or in [SCT](https://spinalcordtoolbox.com/) via `sct_register_multimodal`. 
+
+Registration pipelines (including preprocessing, registration, post processing, evaluation) have been developed for the registration of multimodal 3D MR images, focusing on the spinal cord. They provide easy-to-use, accurate and fast solution for multimodal 3D registration. A sketch of the [cascaded pipeline](#registration--evaluation-pipeline-for-large-displacements-two-steps-approach) is represented with these figures.
+
+<img width="1000" alt="Capture d’écran 2022-02-25 à 17 34 54" src="https://user-images.githubusercontent.com/32447627/156236724-421dfc87-55e0-4b92-b6d3-828f323c7dc0.png">
+
+<img width="1000" alt="Capture d’écran 2022-02-28 à 15 56 13" src="https://user-images.githubusercontent.com/32447627/156236758-947913f1-b025-48df-94f2-04a71e0e375c.png">
 
 ## Table of contents
 
