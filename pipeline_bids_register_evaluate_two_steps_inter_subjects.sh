@@ -126,12 +126,12 @@ file_fx="fixed_proc"
 file_mov="moving_pmj_reg"
 segment $file_fx $FX_CONTRAST
 segment $file_mov $MOV_CONTRAST
-sct_register_multimodal -i moving_pmj_reg.nii.gz -d fixed_proc.nii.gz -iseg moving_pmj_reg_seg.nii.gz -dseg fixed_proc_seg.nii.gz -o moving_pmj_slicereg.nii.gz -owarp warp_slicereg.nii.gz -param step=1,type=seg,algo=centermass,metric=MeanSquares,smooth=0,iter=10
+sct_register_multimodal -i moving_pmj_reg.nii.gz -d fixed_proc.nii.gz -iseg moving_pmj_reg_seg.nii.gz -dseg fixed_proc_seg.nii.gz -o moving_pmj_scsegreg.nii.gz -owarp warp_scsegreg.nii.gz -param step=1,type=seg,algo=centermass,metric=MeanSquares,smooth=0,iter=10
 
 # ---- Non-linear (deformable) registration using two models successively ---- #
 conda activate smenv
 # TODO: WARNING: Subvolumes are not supported for the moment for the inter-subjects registration
-python $PATH_SCRIPT/bids_two_steps_registration_inter_subjects.py --model1-path $PATH_SCRIPT/model/$AFFINE_REGISTRATION_MODEL --model2-path $PATH_SCRIPT/model/$DEFORMABLE_REGISTRATION_MODEL --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path fixed_proc.nii.gz --mov-img-path moving_pmj_slicereg.nii.gz --fx-img-contrast $FX_NAME --one-cpu-tf True
+python $PATH_SCRIPT/bids_two_steps_registration_inter_subjects.py --model1-path $PATH_SCRIPT/model/$AFFINE_REGISTRATION_MODEL --model2-path $PATH_SCRIPT/model/$DEFORMABLE_REGISTRATION_MODEL --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path fixed_proc.nii.gz --mov-img-path moving_pmj_scsegreg.nii.gz --fx-img-contrast $FX_NAME --one-cpu-tf True
 conda deactivate
 
 if [ $MULT_SESSIONS == 1 ]
