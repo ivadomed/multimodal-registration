@@ -279,7 +279,7 @@ if [ $KEEP_ONLY_RES == 1 ]
 then
   mkdir res
   mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_fx_before_proc}${FX_EXT}" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${file_fx_before_proc}${FX_EXT}"
-  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/moving_before_proc.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/moving_before_proc.nii.gz"
+  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/moving_before_proc.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/moving_before_proc.nii.gz"
   mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_mov_reg}.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${file_mov_reg}.nii.gz"
   filenames=`ls ./*.nii.gz`
   for file in $filenames
