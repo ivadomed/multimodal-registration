@@ -20,24 +20,13 @@ def pmj_reg(fixed, moving_before_pmj_reg, fx_pmj_mask, mov_pmj_mask):
     pmj_fx_loc = np.where(fx_pmj_mask != 0)
     pmj_fx_loc = [pmj_fx_loc[0][0], pmj_fx_loc[1][0], pmj_fx_loc[2][0]]
 
-    translation_vect_mov_to_fx = [- pmj_fx_loc[i] + pmj_mov_loc[i] for i in range(3)]
+    translation_vect_mov_to_fx = [- pmj_fx_loc[i] + pmj_mov_loc[i] for i in range(2)]  # Do the translation only for x and y
+    translation_vect_mov_to_fx.append(0)
 
     mov_pmj_aligned = affine_transform(moving_before_pmj_reg.get_fdata(), np.identity(3), offset=translation_vect_mov_to_fx)
     mov_pmj_reg = nib.Nifti1Image(mov_pmj_aligned, fixed.affine)
-
-    # Crop the fixed and moving image in function of the displacement done in the axial axis
-    if translation_vect_mov_to_fx[2] < 0:
-        new_fixed_data = np.zeros_like(fixed.get_fdata())
-        new_mov_pmj_reg_data = np.zeros_like(fixed.get_fdata())
-
-        new_fixed_data[:, :, -translation_vect_mov_to_fx[2] - 1:] = fixed.get_fdata()[:, :, -translation_vect_mov_to_fx[2] - 1:]
-        new_mov_pmj_reg_data[:, :, -translation_vect_mov_to_fx[2] - 1:] = mov_pmj_reg.get_fdata()[:, :, -translation_vect_mov_to_fx[2] - 1:]  # translation_vect_mov_to_fx[2] - 1
-
-        fixed = nib.Nifti1Image(new_fixed_data, fixed.affine)
-        mov_pmj_reg = nib.Nifti1Image(new_mov_pmj_reg_data, fixed.affine)
-
+    
     nib.save(mov_pmj_reg, 'moving_pmj_reg.nii.gz')
-    nib.save(fixed, 'fixed_proc.nii.gz')
 
 
 def register(fx_im_path, mov_im_path, fx_pmj_path, mov_pmj_path):

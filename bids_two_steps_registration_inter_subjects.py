@@ -284,6 +284,21 @@ def register(model_inference_specs, reg_model1, reg_model2, fx_im_path, mov_im_p
     fixed = nib.load(fx_im_path)
     moving = nib.load(mov_im_path)
 
+    # Zero-pad to have data of the same dimension and ensure that it is a multiple of 16
+    max_img_shape = max(fixed.get_fdata().shape, moving.get_fdata().shape)
+    new_img_shape = (int(np.ceil(max_img_shape[0] // 16)) * 16, int(np.ceil(max_img_shape[1] // 16)) * 16,
+                     int(np.ceil(max_img_shape[2] // 16)) * 16)
+    # Pad the volumes to the max shape
+    fixed = resample_img(fixed, target_affine=fixed.affine, target_shape=new_img_shape, interpolation='continuous')
+    moving = resample_img(moving, target_affine=moving.affine, target_shape=new_img_shape, interpolation='continuous')
+    # Scale the data between 0 and 1
+    fx_img = fixed.get_fdata()
+    fixed_scale = (fx_img - np.min(fx_img)) / (np.max(fx_img) - np.min(fx_img))
+    fixed = nib.Nifti1Image(fixed_scale, fixed.affine)
+    mov_img = moving.get_fdata()
+    moving_scale = (mov_img - np.min(mov_img)) / (np.max(mov_img) - np.min(mov_img))
+    moving = nib.Nifti1Image(moving_scale, moving.affine)
+
     fixed_nii, moving_nii = fixed, moving
     mov_im_path = 'moving'
 

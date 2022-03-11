@@ -68,11 +68,17 @@ FX_NAME="T1w"
 FX_EXT=".nii.gz"
 FX_CONTRAST="t1"  # This parameter is used for SC segmentation and should be one of {t1, t2, t2s, dwi}
 # Choose the name and the extension of the moving volume (ex: T2w and .nii.gz) and its contrast (ex: t2)
-MOV_NAME="T2w"
+MOV_NAME="T1w"
 # MOV_EXT=".nii.gz"
-MOV_CONTRAST="t2"  # This parameter is used for SC segmentation and should be one of {t1, t2, t2s, dwi}
+MOV_CONTRAST="t1"  # This parameter is used for SC segmentation and should be one of {t1, t2, t2s, dwi}
 # Specify if multi-sessions are available per subject: if yes set the value to 1, if no set the value to 0
 MULT_SESSIONS=0  # TODO: WARNING: multi-sessions is not supported for the moment
+
+# Specify if you want to use the PMJ detection to improve the registration (the detection may fail for certain subjects
+# but will consequently improve the registration when correctly detected)
+USE_PMJ=1
+# Specify if you want to compute the SC segmentation and associated dice score for each step of the process (longer computation)
+SC_SEG_ANA_WHOLE_PROCESS=1
 
 # Choose whether to keep all the files created during the process (DEBUGGING=1) (in add_res and seg folders) to debug
 # and observe what happened at the different steps of the process or to keep only the two volumes of origin
@@ -84,8 +90,8 @@ DEBUGGING=1
 KEEP_ORI_NAMING_LOC=0
 # Choose which type of evaluation you want to run to assess the registration results (1 will run the analysis, 0 no)
 EVAL_METRICS_ON_SC_SEG=1
-EVAL_MI=1
-EVAL_JACOBIAN=1
+# Choose whether to save all the files or keep only the results (fixed, moving and registered images)
+KEEP_ONLY_RES=0
 # ==============================================================================
 
 # Go to folder where data will be copied and processed
@@ -103,47 +109,73 @@ source $CONDA_BASE/etc/profile.d/conda.sh
 if [ $MULT_SESSIONS == 1 ]
 then
   file_fx_before_proc="${SUBJECT_ID}_${SES}_${FX_NAME}"
+  FX_LAB_MANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_fx_before_proc}_labels-disc-manual.nii.gz"
 else
   file_fx_before_proc="${SES}_${FX_NAME}"
+  FX_LAB_MANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_fx_before_proc}_labels-disc-manual.nii.gz"
 fi
 
 conda activate smenv
 # ---- Select the moving data ---- #
-python $PATH_SCRIPT/select_preproc_data.py --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path ${file_fx_before_proc}${FX_EXT} --data-path $PATH_DATA --mult-sessions $MULT_SESSIONS --mov-img-contrast $MOV_NAME
+python $PATH_SCRIPT/select_data.py --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path ${file_fx_before_proc}${FX_EXT} --data-path $PATH_DATA --mult-sessions $MULT_SESSIONS --mov-img-contrast $MOV_NAME
 conda deactivate
 
-# ---- Detect the PMJ ---- #
-sct_detect_pmj -i ${file_fx_before_proc}_proc.nii.gz -c $FX_CONTRAST -o fx_pmj.nii.gz -qc ${PATH_QC}_pmj
-sct_detect_pmj -i moving_proc.nii.gz -c $MOV_CONTRAST -o mov_pmj.nii.gz -qc ${PATH_QC}_pmj
+mov_fx_before_proc="moving_before_proc.nii.gz"
+MOV_LAB_MANUAL="moving_labels.nii.gz"
 
-# ---- PMJ alignment ---- #
-conda activate smenv
-python $PATH_SCRIPT/pmj_alignment.py --fx-img-path ${file_fx_before_proc}_proc${FX_EXT} --mov-img-path moving_proc.nii.gz --fx-pmj-path fx_pmj.nii.gz --mov-pmj-path mov_pmj.nii.gz
-conda deactivate
+# ---- Keep only two labels (3 = C2/C3, 8 = C7/T1) ---- #
+sct_label_utils -i $FX_LAB_MANUAL -o fx_labels38.nii.gz -keep 3,8
+sct_label_utils -i $MOV_LAB_MANUAL -o mov_labels38.nii.gz -keep 3,8
+
+FX_LAB_MANUAL="fx_labels38.nii.gz"
+MOV_LAB_MANUAL="mov_labels38.nii.gz"
+
+# ---- Preprocess the fixed image ---- #
+# Resample the fixed image to isotropic 1mm resolution
+sct_resample -i ${file_fx_before_proc}${FX_EXT} -mm 1x1x1 -o ${file_fx_before_proc}_res1.nii.gz
+
+# ---- Registration using the labels ---- #
+sct_register_multimodal -i moving_before_proc.nii.gz -d ${file_fx_before_proc}_res1.nii.gz -ilabel $MOV_LAB_MANUAL -dlabel $FX_LAB_MANUAL -o moving_label_reg.nii.gz -param step=0,iter=10,algo=syn,shrink=4,type=label,dof=Tx_Ty_Tz_Rx_Ry_Sz # (Sz)
+
+if [ $USE_PMJ == 1 ]
+then
+  # ---- Detect the PMJ ---- #
+  sct_detect_pmj -i ${file_fx_before_proc}_res1.nii.gz -c $FX_CONTRAST -o fx_pmj.nii.gz -qc ${PATH_QC}_pmj
+  sct_detect_pmj -i moving_label_reg.nii.gz -c $MOV_CONTRAST -o mov_pmj.nii.gz -qc ${PATH_QC}_pmj
+
+  # ---- Registration using the PMJ ---- #
+  # sct_register_multimodal -i moving_label_reg.nii.gz -d ${file_fx_before_proc}_res1.nii.gz -ilabel mov_pmj.nii.gz -dlabel fx_pmj.nii.gz -o moving_label_reg_pmj_reg.nii.gz -param step=0,iter=10,algo=syn,shrink=4,type=label,dof=Tx_Ty_Tz # (Sz)
+  conda activate smenv
+  python $PATH_SCRIPT/pmj_alignment.py --fx-img-path ${file_fx_before_proc}_res1.nii.gz --mov-img-path moving_label_reg.nii.gz --fx-pmj-path fx_pmj.nii.gz --mov-pmj-path mov_pmj.nii.gz
+  conda deactivate
+  file_fx="${file_fx_before_proc}_res1"
+  file_mov="moving_pmj_reg"
+
+else
+  file_fx="${file_fx_before_proc}_res1"
+  file_mov="moving_label_reg"
+fi
 
 # ---- Compute SC segmentation and register the SC by doing a (axial) slice wise translation alignment of the SC seg ---- #
-file_fx="fixed_proc"
-file_mov="moving_pmj_reg"
 segment $file_fx $FX_CONTRAST
 segment $file_mov $MOV_CONTRAST
-sct_register_multimodal -i moving_pmj_reg.nii.gz -d fixed_proc.nii.gz -iseg moving_pmj_reg_seg.nii.gz -dseg fixed_proc_seg.nii.gz -o moving_pmj_scsegreg.nii.gz -owarp warp_scsegreg.nii.gz -param step=1,type=seg,algo=centermass,metric=MeanSquares,smooth=0,iter=10
+sct_register_multimodal -i ${file_mov}.nii.gz -d ${file_fx}.nii.gz -iseg ${file_mov}_seg.nii.gz -dseg ${file_fx}_seg.nii.gz -o ${file_mov}_sc_reg.nii.gz -owarp warp_sc_reg.nii.gz -param step=1,type=seg,algo=centermass,metric=MeanSquares,smooth=0,iter=10,deformation=1x1x1
+
+file_fx="${file_fx_before_proc}_res1"
+file_mov="${file_mov}_sc_reg"
 
 # ---- Non-linear (deformable) registration using two models successively ---- #
 conda activate smenv
 # TODO: WARNING: Subvolumes are not supported for the moment for the inter-subjects registration
-python $PATH_SCRIPT/bids_two_steps_registration_inter_subjects.py --model1-path $PATH_SCRIPT/model/$AFFINE_REGISTRATION_MODEL --model2-path $PATH_SCRIPT/model/$DEFORMABLE_REGISTRATION_MODEL --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path fixed_proc.nii.gz --mov-img-path moving_pmj_scsegreg.nii.gz --fx-img-contrast $FX_NAME --one-cpu-tf True
+python $PATH_SCRIPT/bids_two_steps_registration_inter_subjects.py --model1-path $PATH_SCRIPT/model/$AFFINE_REGISTRATION_MODEL --model2-path $PATH_SCRIPT/model/$DEFORMABLE_REGISTRATION_MODEL --config-path $PATH_SCRIPT/config/$INFERENCE_CONFIG --fx-img-path ${file_fx}.nii.gz --mov-img-path ${file_mov}.nii.gz --fx-img-contrast $FX_NAME --one-cpu-tf True
 conda deactivate
 
 if [ $MULT_SESSIONS == 1 ]
 then
-  file_fx="fixed_proc"
-  file_mov="moving_pmj_reg"
   file_mov_reg="moving_proc_reg_to_${FX_NAME}"
   file_warp="moving_warp_original_dim.nii.gz"
   sub_id="${SUBJECT_ID}_${SES}"
 else
-  file_fx="fixed_proc"
-  file_mov="moving_pmj_reg"
   file_mov_reg="moving_proc_reg_to_${FX_NAME}"
   file_warp="moving_warp_original_dim.nii.gz"
   sub_id="${SES}"
@@ -156,33 +188,80 @@ then
 
   if [ $MULT_SESSIONS == 1 ]
   then
-    file_fx_seg="fixed_proc_seg"
-    file_mov_seg="moving_pmj_reg_seg"
-    file_mov_reg_seg="moving_proc_reg_to_${FX_NAME}_seg"
+    file_fx_seg="${file_fx_before_proc}_res1_seg"
+    if [ $USE_PMJ == 1 ]
+    then
+      file_mov_seg="moving_pmj_reg_seg"
+    else
+      file_mov_seg="moving_label_reg_seg"
+    fi
+    file_mov_reg_seg="${file_mov_reg}_seg"
   else
-    file_fx_seg="fixed_proc_seg"
-    file_mov_seg="moving_pmj_reg_seg"
-    file_mov_reg_seg="moving_proc_reg_to_${FX_NAME}_seg"
+    file_fx_seg="${file_fx_before_proc}_res1_seg"
+    if [ $USE_PMJ == 1 ]
+    then
+      file_mov_seg="moving_pmj_reg_seg"
+    else
+      file_mov_seg="moving_label_reg_seg"
+    fi
+    file_mov_reg_seg="${file_mov_reg}_seg"
+  fi
+
+  # Put the segmentation in the same space as the fixed image
+  sct_register_multimodal -i ${file_mov_reg_seg}.nii.gz -d ${file_fx_seg}.nii.gz -o ${file_mov_reg_seg}_correct_dim.nii.gz -identity 1
+  file_mov_reg_seg="${file_mov_reg_seg}_correct_dim"
+
+  if [ $SC_SEG_ANA_WHOLE_PROCESS == 1 ]
+  then
+    # Compute the additional segmentations to get an idea of the registration improvement during the whole process
+    segment moving_before_proc $MOV_CONTRAST
+    sct_register_multimodal -i moving_before_proc_seg.nii.gz -d ${file_fx_seg}.nii.gz -o moving_before_proc_seg_correct_dim.nii.gz -identity 1
+    if [ $USE_PMJ == 1 ]
+    then
+      segment moving_label_reg $MOV_CONTRAST
+      sct_register_multimodal -i moving_label_reg_seg.nii.gz -d ${file_fx_seg}.nii.gz -o moving_label_reg_seg_correct_dim.nii.gz -identity 1
+    fi
+    segment $file_mov $MOV_CONTRAST
+    sct_register_multimodal -i ${file_mov}_seg.nii.gz -d ${file_fx_seg}.nii.gz -o ${file_mov}_seg_correct_dim.nii.gz -identity 1
+
+    # Crop the segmentations to not evaluate them on area where one of the two images is not defined
+    sct_maths -i ${file_mov_reg_seg}.nii.gz -o sc_seg_mask.nii.gz -dilate 40 -shape square -dim 2
+    sct_maths -i sc_seg_mask.nii.gz -o sc_seg_mask_final.nii.gz -dilate 5 -shape cube
+    sct_crop_image -i ${file_fx_seg}.nii.gz -m sc_seg_mask_final.nii.gz
+    sct_crop_image -i moving_before_proc_seg_correct_dim.nii.gz -m sc_seg_mask_final.nii.gz
+    if [ $USE_PMJ == 1 ]
+    then
+      sct_crop_image -i moving_label_reg_seg_correct_dim.nii.gz -m sc_seg_mask_final.nii.gz
+    fi
+    sct_crop_image -i ${file_mov_seg}.nii.gz -m sc_seg_mask_final.nii.gz
+    sct_crop_image -i ${file_mov}_seg_correct_dim.nii.gz -m sc_seg_mask_final.nii.gz
+    sct_crop_image -i ${file_mov_reg_seg}.nii.gz -m sc_seg_mask_final.nii.gz
   fi
 fi
 
 conda activate smenv
 if [ $EVAL_METRICS_ON_SC_SEG == 1 ]
 then
-  # Compute metrics on SC segmentation overlap before and after registration and save the results in a csv file
-  python $PATH_SCRIPT/eval_reg_on_sc_seg.py --fx-seg-path $file_fx_seg --moving-seg-path $file_mov_seg --warped-seg-path $file_mov_reg_seg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/metrics_on_sc_seg.csv --append 1
+  if [ $USE_PMJ == 1 ]
+  then
+    # Compute metrics on SC segmentation overlap before and after registration and save the results in a csv file
+    # python $PATH_SCRIPT/eval_reg_on_sc_seg_inter_sub.py --fx-seg-path $file_fx_seg --moving-seg-path moving_before_proc_seg_correct_dim.nii.gz --moving-label-reg-seg-path moving_label_reg_seg_correct_dim.nii.gz --moving-pmj-reg-seg-path $file_mov_seg --moving-sc-reg-seg-path ${file_mov}_seg_correct_dim.nii.gz --warped-seg-path $file_mov_reg_seg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/metrics_on_sc_seg.csv --append 1
+    if [ $SC_SEG_ANA_WHOLE_PROCESS == 1 ]
+    then
+      python $PATH_SCRIPT/eval_reg_on_sc_seg_inter_sub.py --fx-seg-path ${file_fx_seg}_crop.nii.gz --moving-seg-path moving_before_proc_seg_correct_dim_crop.nii.gz --moving-label-reg-seg-path moving_label_reg_seg_correct_dim_crop.nii.gz --moving-pmj-reg-seg-path ${file_mov_seg}_crop.nii.gz --moving-sc-reg-seg-path ${file_mov}_seg_correct_dim_crop.nii.gz --warped-seg-path ${file_mov_reg_seg}_crop.nii.gz --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/metrics_on_sc_seg.csv --append 1
+    else
+      python $PATH_SCRIPT/eval_reg_on_sc_seg.py --fx-seg-path $file_fx_seg --moving-seg-path ${file_mov_seg}.nii.gz --warped-seg-path $file_mov_reg_seg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/metrics_on_sc_seg.csv --append 1
+    fi
+  else
+    # python $PATH_SCRIPT/eval_reg_on_sc_seg_inter_sub.py --fx-seg-path $file_fx_seg --moving-seg-path moving_before_proc_seg_correct_dim.nii.gz --moving-label-reg-seg-path $file_mov_seg --moving-sc-reg-seg-path ${file_mov}_seg_correct_dim.nii.gz --warped-seg-path $file_mov_reg_seg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/metrics_on_sc_seg.csv --append 1
+    if [ $SC_SEG_ANA_WHOLE_PROCESS == 1 ]
+    then
+      python $PATH_SCRIPT/eval_reg_on_sc_seg_inter_sub.py --fx-seg-path ${file_fx_seg}_crop.nii.gz --moving-seg-path moving_before_proc_seg_correct_dim_crop.nii.gz --moving-label-reg-seg-path ${file_mov_seg}_crop.nii.gz --moving-sc-reg-seg-path ${file_mov}_seg_correct_dim_crop.nii.gz --warped-seg-path ${file_mov_reg_seg}_crop.nii.gz --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/metrics_on_sc_seg.csv --append 1
+    else
+      python $PATH_SCRIPT/eval_reg_on_sc_seg.py --fx-seg-path $file_fx_seg --moving-seg-path ${file_mov_seg}.nii.gz --warped-seg-path $file_mov_reg_seg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/metrics_on_sc_seg.csv --append 1
+    fi
+  fi
 fi
-if [ $EVAL_MI == 1 ]
-then
-  # Compute the normalized Mutual Information and save the results in a csv file
-  python $PATH_SCRIPT/eval_reg_with_mi.py --fx-im-path $file_fx --moving-im-path $file_mov --warped-im-path $file_mov_reg --sub-id $sub_id --out-file $PATH_DATA_PROCESSED/nmi.csv --append 1
-fi
-if [ $EVAL_JACOBIAN == 1 ]
-then
-  # Compute the determinant of the Jacobian and save the results in a csv file
-  python $PATH_SCRIPT/eval_reg_with_jacobian.py --def-field-path $file_warp --sub-id ${SES} --out-file $PATH_DATA_PROCESSED/jacobian_det.csv --out-im-path $PATH_DATA_PROCESSED/$SUBJECT/anat/detJa.nii.gz --append 1
-fi
-conda deactivate
 
 if [ $EVAL_METRICS_ON_SC_SEG == 1 ]
 then
@@ -196,79 +275,71 @@ fi
 # The original fixed and moving volumes are stored in the origin folder
 # If DEBUGGING=1, the additional volumes computed during the process are stored in the add_res folder
 # and the segmentations are stored in the seg folder
-mkdir origin
-mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_fx_before_proc}${FX_EXT}" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/${file_fx_before_proc}${FX_EXT}"
-mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/moving_before_proc.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/moving_before_proc.nii.gz"
-
-if [ $MULT_SESSIONS == 1 ]
+if [ $KEEP_ONLY_RES == 1 ]
 then
-  json_fx_ori="${SUBJECT_ID}_${SES}_${FX_NAME}.json"
-  json_mov_ori="${SUBJECT_ID}_${SES}_${MOV_NAME}.json"
-else
-  json_fx_ori="${SES}_${FX_NAME}.json"
-  json_mov_ori="${SES}_${MOV_NAME}.json"
-fi
-
-mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${json_fx_ori}" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/${json_fx_ori}"
-mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${json_mov_ori}" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/${json_mov_ori}"
-
-mkdir res
-mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_fx}.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${file_fx}.nii.gz"
-mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_mov_reg}.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${file_mov_reg}.nii.gz"
-
-if [ $DEBUGGING == 1 ]
-then
-  if [ $EVAL_METRICS_ON_SC_SEG == 1 ]
-  then
-    mkdir seg
-    filenames_seg=`ls ./*_seg.nii.gz`
-    for file in $filenames_seg
-    do
-       mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/$file" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/seg/$file"
-    done
-  fi
-  mkdir add_res
-  filenames=`ls ./*.nii.gz`
-  for file in $filenames
-  do
-     mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/$file" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/add_res/$file"
-  done
-else
+  mkdir res
+  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_fx_before_proc}${FX_EXT}" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${file_fx_before_proc}${FX_EXT}"
+  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/moving_before_proc.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/moving_before_proc.nii.gz"
+  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_mov_reg}.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${file_mov_reg}.nii.gz"
   filenames=`ls ./*.nii.gz`
   for file in $filenames
   do
      rm -f "$file"
   done
-fi
-
-if [ $KEEP_ORI_NAMING_LOC == 1 ]
-then
-  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${file_fx}.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_fx_before_proc}${FX_EXT}"
-  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${file_mov_reg}.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/registered_image.nii.gz"
-  rm -rf "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/"
-fi
-
-# Verify presence of output files and write log file if error
-# ------------------------------------------------------------------------------
-if [ $KEEP_ORI_NAMING_LOC == 0 ]
-then
-  FILES_TO_CHECK=(
-    "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${file_fx}.nii.gz"
-    "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${file_mov_reg}.nii.gz"
-  )
 else
-  FILES_TO_CHECK=(
-    "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_fx}.nii.gz"
-    "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_mov_reg}.nii.gz"
-  )
+  mkdir origin
+  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_fx_before_proc}${FX_EXT}" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/${file_fx_before_proc}${FX_EXT}"
+  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/moving_before_proc.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/moving_before_proc.nii.gz"
+
+  if [ $MULT_SESSIONS == 1 ]
+  then
+    json_fx_ori="${SUBJECT_ID}_${SES}_${FX_NAME}.json"
+    json_mov_ori="${SUBJECT_ID}_${SES}_${MOV_NAME}.json"
+  else
+    json_fx_ori="${SES}_${FX_NAME}.json"
+    json_mov_ori="${SES}_${MOV_NAME}.json"
+  fi
+
+  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${json_fx_ori}" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/${json_fx_ori}"
+  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${json_mov_ori}" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/origin/${json_mov_ori}"
+
+  mkdir res
+  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_fx}.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${file_fx}.nii.gz"
+  mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_mov_reg}.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${file_mov_reg}.nii.gz"
+
+  if [ $DEBUGGING == 1 ]
+  then
+    if [ $EVAL_METRICS_ON_SC_SEG == 1 ]
+    then
+      mkdir seg
+      filenames_seg=`ls ./*_seg.nii.gz`
+      for file in $filenames_seg
+      do
+         mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/$file" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/seg/$file"
+      done
+    fi
+    mkdir add_res
+    filenames=`ls ./*.nii.gz`
+    for file in $filenames
+    do
+       mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/$file" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/add_res/$file"
+    done
+  else
+    filenames=`ls ./*.nii.gz`
+    for file in $filenames
+    do
+       rm -f "$file"
+    done
+  fi
+
+  if [ $KEEP_ORI_NAMING_LOC == 1 ]
+  then
+    mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${file_fx}.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/${file_fx_before_proc}${FX_EXT}"
+    mv "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/${file_mov_reg}.nii.gz" "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/registered_image.nii.gz"
+    rm -rf "${PATH_DATA_PROCESSED}/${SUBJECT}/anat/res/"
+  fi
 fi
 
-pwd
-for file in ${FILES_TO_CHECK[@]}; do
-  if [[ ! -e $file ]]; then
-    echo "${file} does not exist" >> $PATH_LOG/_error_check_output_files.log
-  fi
-done
 
 # Display useful info for the log
 end=`date +%s`
