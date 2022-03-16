@@ -1,7 +1,5 @@
 """
 File to load two trained registration models and register two images together using the models one after the other.
-It includes a preprocessing step to scale the volumes and set it to an isotropic resolution of 1mm as required by the model.
-The images will be processed (and saved as im_name_proc) to be used in the registration model and then registered.
 The registered image is saved (as im_name_proc_reg_to_CONTRAST). The deformation field is also saved.
 This file can be used in a batch script to register the data of interest from all subjects in a dataset organized
 according to the Brain Imaging Data Structure (BIDS) convention.
