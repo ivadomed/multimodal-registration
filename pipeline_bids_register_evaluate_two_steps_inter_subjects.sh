@@ -134,8 +134,8 @@ MOV_LAB_MANUAL="mov_labels38.nii.gz"
 # Resample the fixed image to isotropic 1mm resolution
 sct_resample -i ${file_fx_before_proc}${FX_EXT} -mm 1x1x1 -o ${file_fx_before_proc}_res1.nii.gz
 
-# ---- Registration using the labels ---- #
-sct_register_multimodal -i moving_before_proc.nii.gz -d ${file_fx_before_proc}_res1.nii.gz -ilabel $MOV_LAB_MANUAL -dlabel $FX_LAB_MANUAL -o moving_label_reg.nii.gz -param step=0,iter=10,algo=syn,shrink=4,type=label,dof=Tx_Ty_Tz_Rx_Ry_Sz # (Sz)
+# ---- Registration using the labels (translation only) ---- #
+sct_register_multimodal -i moving_before_proc.nii.gz -d ${file_fx_before_proc}_res1.nii.gz -ilabel $MOV_LAB_MANUAL -dlabel $FX_LAB_MANUAL -o moving_label_reg.nii.gz -param step=0,iter=10,algo=syn,shrink=4,type=label,dof=Tx_Ty_Tz
 
 if [ $USE_PMJ == 1 ]
 then
