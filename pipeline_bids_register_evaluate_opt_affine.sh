@@ -114,13 +114,13 @@ then
   file_fx="${SUBJECT_ID}_${SES}_${FX_NAME}_proc"
   file_mov="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc"
   file_mov_reg="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}"
-  file_warp="${SUBJECT_ID}_${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
+  file_warp="${SUBJECT_ID}_${SES}_${MOV_NAME}_proc_field_to_${FX_NAME}.nii.gz"
   sub_id="${SUBJECT_ID}_${SES}"
 else
   file_fx="${SES}_${FX_NAME}_proc"
   file_mov="${SES}_${MOV_NAME}_proc"
   file_mov_reg="${SES}_${MOV_NAME}_proc_reg_to_${FX_NAME}"
-  file_warp="${SUBJECT_ID}_${SES}_${MOV_NAME}_warp_original_dim.nii.gz"
+  file_warp="${SES}_${MOV_NAME}_proc_field_to_${FX_NAME}.nii.gz"
   sub_id="${SES}"
 fi
 

@@ -68,13 +68,10 @@ if __name__ == "__main__":
     dz = np.reshape((ddf[2:-2, 2:-2, :-4, :] - 8*ddf[2:-2, 2:-2, 1:-3, :] + 8*ddf[2:-2, 2:-2, 3:-1, :] - ddf[2:-2, 2:-2, 4:, :])/12.0, [num_voxel, num_channel])
     J = np.stack([dx, dy, dz], 2)
 
-    det = []
-    for voxel in range(num_voxel):
-        J[voxel, 0, 0] = J[voxel, 0, 0] + 1
-        J[voxel, 1, 1] = J[voxel, 1, 1] + 1
-        J[voxel, 2, 2] = J[voxel, 2, 2] + 1
-        n_array = J[voxel, :, :]
-        det.append(np.linalg.det(n_array))
+    J[:, 0, 0] = J[:, 0, 0] + 1
+    J[:, 1, 1] = J[:, 1, 1] + 1
+    J[:, 2, 2] = J[:, 2, 2] + 1
+    det = np.linalg.det(J)
 
     comparison = np.where(np.array(det) > 0, 0, np.array(det))  # all negatives values are there and positives become 0
     negative_dets = np.count_nonzero(comparison)
